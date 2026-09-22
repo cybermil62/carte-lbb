@@ -34,7 +34,7 @@ layer.eachLayer(l=>{const code=String(l.feature.properties.code).padStart(5,'0')
 async function load(){
   try{
     document.getElementById('status').textContent='Chargement des contours communaux…';
-    const url='https://contours-administratifs.s3.rbx.io.cloud.ovh.net/2025/geojson/communes-1000m.geojson';
+    const url='https://raw.githubusercontent.com/gregoiredavid/france-geojson/master/communes-version-simplifiee.geojson';
     const r=await fetch(url,{mode:'cors',cache:'force-cache'});
     if(!r.ok) throw new Error('HTTP '+r.status);
     const g=await r.json();
