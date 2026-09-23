@@ -21,7 +21,7 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 .popupHead{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:18px;align-items:start;padding:16px 18px 8px}
 .popupHead h3{margin:0 0 4px;font-size:25px;line-height:1.1;color:#111827}
 .popupHead .meta{font-size:12px;color:#64748b;line-height:1.45}
-.popupPhoto{width:220px;height:105px;object-fit:cover;border-radius:9px;background:#e8eef0;display:block;box-shadow:0 1px 4px #0002}
+.popupPhoto{width:220px;height:105px;object-fit:cover;border-radius:9px;background:#e8eef0;display:block;box-shadow:0 1px 4px #0002}.popupPhotoFallback{width:220px;height:105px;border-radius:9px;background:linear-gradient(135deg,#e8eef0,#dbe4e8);display:flex;align-items:center;justify-content:center;color:#64748b;font-size:11px;text-align:center;padding:10px;box-sizing:border-box}
 .popupPhotoCredit{font-size:8px;color:#94a3b8;margin-top:3px;text-align:right}
 .popupScore{display:grid;grid-template-columns:1fr auto;align-items:center;background:#eef8ee;border-radius:10px;padding:10px 14px;margin:4px 18px 12px}
 .popupScore span{font-size:13px;font-weight:700;color:#36513c}
@@ -74,10 +74,10 @@ L.control.layers({'Fond routier avec noms':base},null,{collapsed:true}).addTo(ma
 function color(n){if(n==null)return'#bdbdbd';if(n<4)return'#d73027';if(n<6)return'#fc8d59';if(n<7)return'#fee08b';if(n<8)return'#d9ef8b';if(n<9)return'#91cf60';return'#1a9850'}
 function fmt(v,s=''){return v==null?'—':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2})+s}
 const POPUP_METRICS=[
-  {key:'loyer',name:'Loyer moyen',unit:'€/m²',sub:'score_loyer',icon:'rent',scale:[8,18],labels:['8','18']},
-  {key:'rendement',name:'Rendement brut',unit:'%',sub:'score_prix',icon:'yield',scale:[4,12],labels:['4 %','12 %'],secondary:d=>'Prix médian : '+fmt(d.prix)+' €/m²'},
+  {key:'loyer',name:'Loyer moyen',unit:'€/m²',sub:'score_loyer',icon:'rent',scale:[0,18],labels:['0','18']},
+  {key:'rendement',name:'Rendement brut',unit:'%',sub:'score_prix',icon:'yield',scale:[0,12],labels:['0 %','12 %'],secondary:d=>'Prix médian : '+fmt(d.prix)+' €/m²'},
   {key:'demo',name:'Croissance démographique',unit:'%/an',sub:'score_demo',icon:'growth',scale:[-0.5,1],labels:['−0,5','+1']},
-  {key:'young',name:'Part des 15–29 ans',unit:'%',sub:'score_young',icon:'young',scale:[10,20],labels:['10 %','20 %']},
+  {key:'young',name:'Part des 15–29 ans',unit:'%',sub:'score_young',icon:'young',scale:[0,20],labels:['0 %','20 %']},
   {key:'ratio',name:'Ratio actifs / (chômeurs + inactifs)',unit:'',sub:'score_ratio',icon:'ratio',scale:[0,2.4],labels:['0','2,4']},
   {key:'revenu',name:'Revenu fiscal moyen',unit:'€/an',sub:'score_revenu',icon:'income',scale:[20000,32000],labels:['20 k€','32 k€']}
 ];
@@ -105,12 +105,13 @@ function metricRow(d,m){
   const st=popupStats[m.key], v=Number(d[m.key]);
   const range=st.max-st.min;
   const pct=range>0?Math.max(0,Math.min(100,((v-st.min)/range)*100)):50;
-  const valueTxt=fmt(v)+(m.unit?' '+m.unit:'');
+  const valueDisplay = m.key==='revenu' ? Math.round(v).toLocaleString('fr-FR') : fmt(v);
+  const valueTxt=valueDisplay+(m.unit?' '+m.unit:'');
   const icon=ICONS[m.icon]||'';
   const secondary=m.secondary?m.secondary(d):'';
   return `<div class="metricRow">
     <div class="metricInfo">
-      <div class="metricLabelLine"><span class="metricIcon">${icon}</span><span><span class="metricName">${m.name}${m.unit?' ('+m.unit+')':''}</span><br><span class="metricValue">${fmt(v)}${m.unit?' '+m.unit:''}</span>${secondary?'<br><span class="metricSecondary">'+secondary+'</span>':''}</span></div>
+      <div class="metricLabelLine"><span class="metricIcon">${icon}</span><span><span class="metricName">${m.name}${m.unit?' ('+m.unit+')':''}</span><br><span class="metricValue">${valueDisplay}${m.unit?' '+m.unit:''}</span>${secondary?'<br><span class="metricSecondary">'+secondary+'</span>':''}</span></div>
     </div>
     <div class="metricBarWrap">
       <div class="metricBar" title="Échelle basée sur les bornes de notation de l'algorithme">
@@ -123,35 +124,58 @@ function metricRow(d,m){
 }
 function photoFor(d){
   if(popupPhotoCache.has(d.code)) return popupPhotoCache.get(d.code);
+  // Photo fiable de Lille (Wikimedia Commons)
   if(d.code==='59350'){
-    const x={url:'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Grand_place_de_Lille.jpg/960px-Grand_place_de_Lille.jpg',credit:'Wikimedia Commons · CC BY-SA 3.0'};
+    const x={url:'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Grand_place_de_Lille.jpg/960px-Grand_place_de_Lille.jpg',credit:'Wikimedia Commons'};
     popupPhotoCache.set(d.code,x); return x;
   }
   const fallback={url:'',credit:'',loading:true};
   popupPhotoCache.set(d.code,fallback);
+  const setPhoto=(thumb,credit)=>{
+    if(!thumb)return false;
+    popupPhotoCache.set(d.code,{url:thumb,credit:credit||'Wikimedia Commons'});
+    const img=document.querySelector('[data-photo-code="'+d.code+'"]');
+    if(img){
+      img.onload=()=>{img.style.display='block'; if(map._popup)map._popup.update();};
+      img.onerror=()=>{img.style.display='none';};
+      img.src=thumb;
+    }
+    const cr=document.querySelector('[data-photo-credit="'+d.code+'"]');
+    if(cr)cr.textContent=credit||'Wikimedia Commons';
+    return true;
+  };
+  const getWikidataPhoto=(qid)=>fetch('https://www.wikidata.org/w/api.php?action=wbgetentities&ids='+encodeURIComponent(qid)+'&props=claims&format=json&origin=*',{mode:'cors'})
+    .then(r=>r.ok?r.json():null).then(j=>{
+      const claims=j?.entities?.[qid]?.claims?.P18;
+      const file=claims?.[0]?.mainsnak?.datavalue?.value;
+      if(!file)return false;
+      const url='https://commons.wikimedia.org/wiki/Special:Redirect/file/'+encodeURIComponent(file)+'?width=960';
+      return setPhoto(url,'Wikimedia Commons');
+    }).catch(()=>false);
+  // 1) Wikipédia : rapide et souvent directement relié à la commune
   const wp='https://fr.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(d.name);
   fetch(wp,{mode:'cors'}).then(r=>r.ok?r.json():null).then(j=>{
     const thumb=j?.thumbnail?.source;
-    if(thumb){
-      popupPhotoCache.set(d.code,{url:thumb,credit:'Wikipédia / Wikimedia Commons'});
-      const img=document.querySelector('[data-photo-code="'+d.code+'"]');
-      if(img){img.src=thumb;img.style.display='block';img.onload=()=>{if(map._popup)map._popup.update();};}
-      const cr=document.querySelector('[data-photo-credit="'+d.code+'"]');
-      if(cr)cr.textContent='Wikipédia / Wikimedia Commons';
-      return;
-    }
-    return fetch('https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=1&gsrsearch='+encodeURIComponent(d.name+' France')+'&prop=imageinfo&iiprop=url&iiurlwidth=960&format=json&origin=*',{mode:'cors'});
-  }).then(r=>r&&r.ok?r.json():null).then(j=>{
-    const pages=j?.query?.pages;
-    if(!pages)return;
-    const first=Object.values(pages)[0];
-    const thumb=first?.imageinfo?.[0]?.thumburl||first?.imageinfo?.[0]?.url;
-    if(!thumb)return;
-    popupPhotoCache.set(d.code,{url:thumb,credit:'Wikimedia Commons'});
-    const img=document.querySelector('[data-photo-code="'+d.code+'"]');
-    if(img){img.src=thumb;img.style.display='block';img.onload=()=>{if(map._popup)map._popup.update();};}
-    const cr=document.querySelector('[data-photo-credit="'+d.code+'"]');
-    if(cr)cr.textContent='Wikimedia Commons';
+    if(thumb) return setPhoto(thumb,'Wikipédia / Wikimedia Commons');
+    // 2) Wikidata : recherche de l'entité correspondant à la commune, puis récupération de P18
+    return fetch('https://www.wikidata.org/w/api.php?action=wbsearchentities&search='+encodeURIComponent(d.name)+'&language=fr&uselang=fr&format=json&origin=*&limit=8',{mode:'cors'})
+      .then(r=>r.ok?r.json():null).then(j=>{
+        const results=j?.search||[];
+        const exact=results.find(x=>x.label===d.name)||results[0];
+        return exact?.id ? getWikidataPhoto(exact.id) : false;
+      });
+  }).then(found=>{
+    if(found)return;
+    // 3) Wikimedia Commons en dernier recours, avec le nom de la commune + France
+    return fetch('https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=5&gsrsearch='+encodeURIComponent('"'+d.name+'" France')+'&prop=imageinfo&iiprop=url&iiurlwidth=960&format=json&origin=*',{mode:'cors'})
+      .then(r=>r.ok?r.json():null).then(j=>{
+        const pages=j?.query?.pages;
+        if(!pages)return false;
+        const candidates=Object.values(pages);
+        const first=candidates.find(x=>/\b(commune|mairie|town hall|centre|église|church|place|rue|ville)\b/i.test(x.title||''))||candidates[0];
+        const thumb=first?.imageinfo?.[0]?.thumburl||first?.imageinfo?.[0]?.url;
+        return setPhoto(thumb,'Wikimedia Commons');
+      }).catch(()=>false);
   }).catch(()=>{});
   return fallback;
 }
