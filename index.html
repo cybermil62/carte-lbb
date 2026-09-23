@@ -6,6 +6,13 @@
 html,body,#map{height:100%;margin:0;font-family:Arial,sans-serif}#map{background:#edf1f3}
 #panel{position:absolute;z-index:1000;top:12px;left:12px;width:300px;max-width:calc(100vw - 50px);background:#fff;padding:14px;border-radius:10px;box-shadow:0 2px 12px #0003}
 h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;padding:8px;margin:4px 0 8px;border:1px solid #bbb;border-radius:6px}
+.filterLabel{font-size:11px;color:#555;margin:3px 0 2px}
+.multiBox{position:relative;width:100%;margin:0 0 5px}
+#deptButton{width:100%;padding:7px 8px;border:1px solid #bbb;border-radius:6px;background:#fff;text-align:left;font-size:12px;cursor:pointer}
+.multiMenu{display:none;position:absolute;z-index:1000;left:0;right:0;max-height:260px;overflow:auto;background:#fff;border:1px solid #aaa;border-radius:6px;padding:6px;box-shadow:0 2px 8px #0003}
+.multiMenu.open{display:block}
+.deptOption{display:block;padding:3px 2px;font-size:12px;cursor:pointer}
+.deptOption input{margin-right:6px}
 #status{font-size:12px;color:#555}.legend{background:#fff;padding:8px;border-radius:6px;line-height:19px;box-shadow:0 1px 5px #0004}
 .sw{display:inline-block;width:18px;height:12px;margin-right:5px;border:1px solid #777}
 .score{font-size:18px;font-weight:bold}
@@ -13,8 +20,13 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 #choiceLabel{display:none;font-size:12px;color:#555;margin:2px 0 2px}</style></head><body>
 <div id="panel"><h2>Algorithme périurbain</h2>
 <input id="search" placeholder="Commune ou code INSEE"><div id="choiceLabel">Plusieurs communes correspondent :</div><select id="communeChoice" size="6"></select>
-<select id="dept"><option value="">Tous les départements</option></select>
+<div class="filterLabel">Départements</div>
+<div id="deptBox" class="multiBox">
+  <button type="button" id="deptButton">Tous les départements ▾</button>
+  <div id="deptMenu" class="multiMenu"></div>
+</div>
 <select id="threshold"><option value="-1">Toutes les notes</option><option value="9">Note ≥ 9</option><option value="8">Note ≥ 8</option><option value="7">Note ≥ 7</option><option value="6">Note ≥ 6</option><option value="5">Note ≥ 5</option></select>
+<select id="yieldThreshold"><option value="-1">Tous les rendements</option><option value="10">Rendement brut ≥ 10 %</option><option value="9">Rendement brut ≥ 9 %</option><option value="8">Rendement brut ≥ 8 %</option><option value="7">Rendement brut ≥ 7 %</option><option value="6">Rendement brut ≥ 6 %</option><option value="5">Rendement brut ≥ 5 %</option><option value="4">Rendement brut ≥ 4 %</option></select>
 <div id="status">Chargement des contours…</div>
 </div><div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -56,12 +68,42 @@ function zoomToData(d){
   const l=layer.getLayers().find(x=>String(x.feature.properties.code||x.feature.properties.CODE||'').padStart(5,'0')===d.code);
   if(l){map.fitBounds(l.getBounds(),{maxZoom:14,padding:[30,30]});l.openPopup();}
 }
+function selectedDepartments(){
+  return [...document.querySelectorAll('#deptMenu input[type="checkbox"]:checked')].map(x=>x.value);
+}
+function updateDeptButton(){
+  const vals=selectedDepartments();
+  const b=document.getElementById('deptButton');
+  if(vals.length===0 || vals.length===document.querySelectorAll('#deptMenu input[type="checkbox"]').length){
+    b.textContent='Tous les départements ▾';
+  }else{
+    b.textContent=vals.length+' département'+(vals.length>1?'s':'')+' sélectionné'+(vals.length>1?'s':'')+' ▾';
+  }
+}
 function apply(){
-  const q=norm(document.getElementById('search').value),dep=document.getElementById('dept').value,th=Number(document.getElementById('threshold').value);
-  const matches=DATA.filter(d=>(!q||norm(d.name).includes(q)||d.code===q)&&(!dep||d.code.startsWith(dep))&&(th<0||d.note>=th));
+  const q=norm(document.getElementById('search').value);
+  const deps=selectedDepartments();
+  const th=Number(document.getElementById('threshold').value);
+  const yth=Number(document.getElementById('yieldThreshold').value);
+  const matches=DATA.filter(d=>
+    (!q||norm(d.name).includes(q)||d.code===q) &&
+    (!deps.length||deps.includes(d.code.slice(0,2))) &&
+    (th<0||d.note>=th) &&
+    (yth<0||Number(d.rendement)>=yth)
+  );
   refreshChoices(matches);
   let c=0;
-  layer.eachLayer(l=>{const code=String(l.feature.properties.code||l.feature.properties.CODE||'').padStart(5,'0'),d=byCode.get(code);const ok=d&&(!q||norm(d.name).includes(q)||code===q)&&(!dep||code.startsWith(dep))&&(th<0||d.note>=th);l.setStyle({fillOpacity:ok?.72:0,opacity:ok?0.8:0});if(ok)c++});
+  layer.eachLayer(l=>{
+    const code=String(l.feature.properties.code||l.feature.properties.CODE||'').padStart(5,'0');
+    const d=byCode.get(code);
+    const ok=d &&
+      (!q||norm(d.name).includes(q)||code===q) &&
+      (!deps.length||deps.includes(code.slice(0,2))) &&
+      (th<0||d.note>=th) &&
+      (yth<0||Number(d.rendement)>=yth);
+    l.setStyle({fillOpacity:ok?.72:0,opacity:ok?0.8:0});
+    if(ok)c++;
+  });
   document.getElementById('status').textContent=c+' commune'+(c>1?'s':'')+' affichée'+(c>1?'s':'');
   if(matches.length===1)zoomToData(matches[0]);
 }
@@ -90,20 +132,53 @@ async function load(){
 
     if(layer.getBounds().isValid()) map.fitBounds(layer.getBounds());
 
-    [...new Set(DATA.map(x=>x.code.slice(0,2)))].sort().forEach(x=>{
-      const o=document.createElement('option');o.value=x;o.textContent='Département '+x;
-      document.getElementById('dept').appendChild(o);
+    const deptMenu=document.getElementById('deptMenu');
+    const departments=[...new Set(DATA.map(x=>x.code.slice(0,2)))].sort();
+    const allLabel=document.createElement('label');
+    allLabel.className='deptOption';
+    allLabel.innerHTML='<input type="checkbox" id="deptAll" checked> Tous les départements';
+    deptMenu.appendChild(allLabel);
+
+    departments.forEach(x=>{
+      const lab=document.createElement('label');
+      lab.className='deptOption';
+      lab.innerHTML='<input type="checkbox" value="'+x+'"> Département '+x;
+      deptMenu.appendChild(lab);
     });
 
+    const all=document.getElementById('deptAll');
+    all.addEventListener('change',()=>{
+      if(all.checked){
+        deptMenu.querySelectorAll('input[type="checkbox"]:not(#deptAll)').forEach(cb=>cb.checked=false);
+      }
+      updateDeptButton(); apply();
+    });
+    deptMenu.querySelectorAll('input[type="checkbox"]:not(#deptAll)').forEach(cb=>{
+      cb.addEventListener('change',()=>{
+        const checked=selectedDepartments();
+        all.checked=checked.length===0;
+        updateDeptButton(); apply();
+      });
+    });
+
+    document.getElementById('deptButton').addEventListener('click',e=>{
+      e.stopPropagation();
+      deptMenu.classList.toggle('open');
+    });
+    document.addEventListener('click',e=>{
+      if(!document.getElementById('deptBox').contains(e.target)) deptMenu.classList.remove('open');
+    });
+
+    updateDeptButton();
     document.getElementById('status').textContent=DATA.length+' communes notées';
-    ['search','dept','threshold'].forEach(id=>{
+    ['search','threshold','yieldThreshold'].forEach(id=>{
       document.getElementById(id).addEventListener('input',apply);
       document.getElementById(id).addEventListener('change',apply);
     });
     document.getElementById('communeChoice').addEventListener('change',()=>{
-  const d=byCode.get(document.getElementById('communeChoice').value);
-  if(d) zoomToData(d);
-});
+      const d=byCode.get(document.getElementById('communeChoice').value);
+      if(d) zoomToData(d);
+    });
   }catch(e){
     document.getElementById('status').textContent='Erreur de chargement des contours : '+e.message;
   }
