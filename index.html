@@ -18,36 +18,37 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 
 .score{font-size:18px;font-weight:bold}
 .popupCard{width:min(760px,calc(100vw - 70px));font-family:Arial,sans-serif;color:#1f2937}
-.popupHead{display:grid;grid-template-columns:minmax(0,1fr) 190px;gap:16px;align-items:start;padding:16px 18px 8px}
+.popupHead{display:grid;grid-template-columns:minmax(0,1fr) 220px;gap:18px;align-items:start;padding:16px 18px 8px}
 .popupHead h3{margin:0 0 4px;font-size:25px;line-height:1.1;color:#111827}
 .popupHead .meta{font-size:12px;color:#64748b;line-height:1.45}
-.popupPhoto{width:190px;height:82px;object-fit:cover;border-radius:8px;background:#e8eef0;display:block}
+.popupPhoto{width:220px;height:105px;object-fit:cover;border-radius:9px;background:#e8eef0;display:block;box-shadow:0 1px 4px #0002}
 .popupPhotoCredit{font-size:8px;color:#94a3b8;margin-top:3px;text-align:right}
 .popupScore{display:grid;grid-template-columns:1fr auto;align-items:center;background:#eef8ee;border-radius:10px;padding:10px 14px;margin:4px 18px 12px}
 .popupScore span{font-size:13px;font-weight:700;color:#36513c}
 .popupScore strong{font-size:25px;color:#111827}
 .popupRank{font-size:11px;color:#64748b;font-weight:600;margin-top:2px}
-.popupMetrics{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;padding:0 18px 8px;font-size:11px}
-.popupMetric{padding:5px 0;border-bottom:1px solid #edf0f2;display:flex;justify-content:space-between;gap:8px}
-.popupMetric b{font-weight:700;white-space:nowrap}
 .subTitle{font-weight:700;font-size:14px;margin:8px 18px 8px;padding-top:4px}
 .metricRow{display:grid;grid-template-columns:205px minmax(250px,1fr) 78px;column-gap:12px;align-items:center;margin:0 18px;padding:7px 0;border-bottom:1px solid #edf0f2}
 .metricInfo{min-width:0}
 .metricName{font-weight:700;font-size:11px;line-height:1.2}
-.metricValue{font-size:12px;font-weight:700;margin-top:2px}
+.metricValue{font-size:12px;font-weight:700;margin-top:2px}.metricSecondary{font-size:9.5px;color:#64748b;margin-top:2px}
 .metricBarWrap{min-width:0}
-.metricBar{position:relative;height:10px;border-radius:6px;background:linear-gradient(90deg,#d73027 0%,#fc8d59 25%,#fee08b 50%,#d9ef8b 68%,#91cf60 84%,#1a9850 100%);border:1px solid #c9ced2;box-sizing:border-box}
-.metricMarker{position:absolute;top:50%;width:15px;height:15px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 0 2px #555;transform:translate(-50%,-50%)}
+.metricBar{position:relative;height:11px;border-radius:6px;background:linear-gradient(90deg,#d73027 0%,#fc8d59 25%,#fee08b 50%,#d9ef8b 68%,#91cf60 84%,#1a9850 100%);border:1px solid #c9ced2;box-sizing:border-box}
+.metricMarker{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 0 2px #555;transform:translate(-50%,-50%)}
+.metricScoreLabel{position:absolute;bottom:17px;transform:translateX(-50%);font-size:10px;font-weight:800;color:#111827;white-space:nowrap}
 .metricBounds{display:flex;justify-content:space-between;font-size:9px;color:#64748b;margin-top:3px}
 .subBadge{justify-self:end;font-size:10px;font-weight:700;background:#eef8ee;color:#1f5130;border-radius:6px;padding:6px 7px;text-align:center;line-height:1.2;white-space:nowrap}
+.scaleLegend{font-size:9px;color:#64748b;margin:2px 18px 0}
 .methodNote{font-size:9.5px;color:#64748b;background:#f5f8fb;border-radius:8px;padding:8px 10px;margin:10px 18px 14px;line-height:1.35}
-.metricIcon{width:28px;height:28px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;font-size:18px;margin-right:7px;vertical-align:middle}
+.metricIcon{width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;margin-right:8px;vertical-align:middle;background:#f1f5f9;color:#334155}
+.metricIcon svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .metricLabelLine{display:flex;align-items:center}
 @media(max-width:700px){
   .popupCard{width:min(94vw,560px)}
   .popupHead{grid-template-columns:1fr 125px}.popupPhoto{width:125px;height:70px}
-  .metricRow{grid-template-columns:150px minmax(150px,1fr) 65px;column-gap:8px}
-  .popupMetrics{grid-template-columns:1fr}
+  .metricRow{grid-template-columns:145px minmax(145px,1fr) 65px;column-gap:8px}
+  .metricScoreLabel{font-size:9px}
+  .subBadge{font-size:9px;padding:5px 5px}
   .metricName{font-size:10px}
 }
 #communeChoice{width:100%;margin-top:2px;padding:5px;border:1px solid #aaa;border-radius:6px;background:#fff;font-size:12px;display:none;min-height:34px}
@@ -75,22 +76,26 @@ L.control.layers({'Fond routier avec noms':base},null,{collapsed:true}).addTo(ma
 function color(n){if(n==null)return'#bdbdbd';if(n<4)return'#d73027';if(n<6)return'#fc8d59';if(n<7)return'#fee08b';if(n<8)return'#d9ef8b';if(n<9)return'#91cf60';return'#1a9850'}
 function fmt(v,s=''){return v==null?'—':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2})+s}
 const POPUP_METRICS=[
-  {key:'loyer',name:'Loyer moyen',unit:'€/m²',sub:'score_loyer',icon:'⌂',iconClass:'blue'},
-  {key:'prix',name:'Prix médian',unit:'€/m²',sub:'score_prix',icon:'▤',iconClass:'orange'},
-  {key:'rendement',name:'Rendement brut',unit:'%',sub:'score_prix',icon:'%',iconClass:'green'},
-  {key:'demo',name:'Croissance démographique',unit:'%/an',sub:'score_demo',icon:'👥',iconClass:'blue'},
-  {key:'young',name:'Part des 15–29 ans',unit:'%',sub:'score_young',icon:'♟',iconClass:'blue'},
-  {key:'ratio',name:'Ratio actifs / (chômeurs + inactifs)',unit:'',sub:'score_ratio',icon:'▣',iconClass:'brown'},
-  {key:'revenu',name:'Revenu fiscal moyen',unit:'€/an',sub:'score_revenu',icon:'€',iconClass:'green'}
+  {key:'loyer',name:'Loyer moyen',unit:'€/m²',sub:'score_loyer',icon:'rent',scale:[8,18],labels:['8','18']},
+  {key:'rendement',name:'Rendement brut',unit:'%',sub:'score_prix',icon:'yield',scale:[4,12],labels:['4 %','12 %'],secondary:d=>'Prix médian : '+fmt(d.prix)+' €/m²'},
+  {key:'demo',name:'Croissance démographique',unit:'%/an',sub:'score_demo',icon:'growth',scale:[-0.5,1],labels:['−0,5','+1']},
+  {key:'young',name:'Part des 15–29 ans',unit:'%',sub:'score_young',icon:'young',scale:[10,20],labels:['10 %','20 %']},
+  {key:'ratio',name:'Ratio actifs / (chômeurs + inactifs)',unit:'',sub:'score_ratio',icon:'ratio',scale:[0,2.4],labels:['0','2,4']},
+  {key:'revenu',name:'Revenu fiscal moyen',unit:'€/an',sub:'score_revenu',icon:'income',scale:[20000,32000],labels:['20 k€','32 k€']}
 ];
 let popupStats=null;
 const popupPhotoCache=new Map();
+const ICONS={
+  rent:'<svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V10l7-6 7 6v11"/><path d="M9 21v-6h6v6"/></svg>',
+  yield:'<svg viewBox="0 0 24 24"><path d="M4 18l5-5 4 3 7-8"/><path d="M16 8h4v4"/><path d="M4 21h16"/></svg>',
+  growth:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20c.7-3.4 2.5-5 5.5-5s4.8 1.6 5.5 5"/><path d="M14 20c.4-2.4 1.7-3.7 3.8-3.7 1.5 0 2.7.7 3.7 2.2"/></svg>',
+  young:'<svg viewBox="0 0 24 24"><circle cx="12" cy="7" r="3"/><path d="M6 21c.6-4.5 2.6-7 6-7s5.4 2.5 6 7"/><path d="M7 11l-2 2"/><path d="M17 11l2 2"/></svg>',
+  ratio:'<svg viewBox="0 0 24 24"><path d="M4 18l5-5 4 3 7-8"/><path d="M4 6h6"/><path d="M4 9h4"/></svg>',
+  income:'<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M7 9h.01M17 15h.01"/></svg>'
+};
 function buildPopupStats(){
   const stats={};
-  POPUP_METRICS.forEach(m=>{
-    const vals=DATA.map(d=>Number(d[m.key])).filter(Number.isFinite);
-    stats[m.key]={min:Math.min(...vals),max:Math.max(...vals)};
-  });
+  POPUP_METRICS.forEach(m=>stats[m.key]={min:m.scale[0],max:m.scale[1]});
   return stats;
 }
 function scoreMax(m){return ['score_prix','score_loyer','score_ratio'].includes(m.sub)?1.2:1}
@@ -104,43 +109,55 @@ function metricRow(d,m){
   const range=st.max-st.min;
   const pct=range>0?Math.max(0,Math.min(100,((v-st.min)/range)*100)):50;
   const score=Number(d[m.sub]);
+  const scoreTxt=fmt(score);
+  const icon=ICONS[m.icon]||'';
+  const secondary=m.secondary?m.secondary(d):'';
   return `<div class="metricRow">
     <div class="metricInfo">
-      <div class="metricLabelLine"><span class="metricIcon ${m.iconClass}">${m.icon}</span><span class="metricName">${m.name}${m.unit?' ('+m.unit+')':''}</span></div>
-      <div class="metricValue">${fmt(v)}${m.unit?' '+m.unit:''}</div>
+      <div class="metricLabelLine"><span class="metricIcon">${icon}</span><span><span class="metricName">${m.name}${m.unit?' ('+m.unit+')':''}</span><br><span class="metricValue">${fmt(v)}${m.unit?' '+m.unit:''}</span>${secondary?'<br><span class="metricSecondary">'+secondary+'</span>':''}</span></div>
     </div>
     <div class="metricBarWrap">
-      <div class="metricBar" title="Position de la valeur entre le minimum et le maximum des communes de la base">
+      <div class="metricBar" title="Échelle basée sur les bornes de notation de l'algorithme">
+        <span class="metricScoreLabel" style="left:${pct.toFixed(2)}%">${scoreTxt}</span>
         <span class="metricMarker" style="left:${pct.toFixed(2)}%"></span>
       </div>
-      <div class="metricBounds"><span>${fmt(st.min)}</span><span>${fmt(st.max)}</span></div>
+      <div class="metricBounds"><span>${m.labels[0]}</span><span>${m.labels[1]}</span></div>
     </div>
-    <div class="subBadge">Sous-score<br>${fmt(score)} / ${fmt(scoreMax(m))}</div>
+    <div class="subBadge">Sous-score<br>${scoreTxt} / ${fmt(scoreMax(m))}</div>
   </div>`;
 }
 function photoFor(d){
   if(popupPhotoCache.has(d.code)) return popupPhotoCache.get(d.code);
-  // Reliable Lille image from Wikimedia Commons; other communes use Wikipedia's thumbnail API.
   if(d.code==='59350'){
-    const x={
-      url:'https://commons.wikimedia.org/wiki/Special:FilePath/Grand%20place%2C%20Lille.jpg?width=800',
-      credit:'Wikimedia Commons · CC BY-SA 4.0'
-    };
+    const x={url:'https://upload.wikimedia.org/wikipedia/commons/thumb/8/86/Grand_place_de_Lille.jpg/960px-Grand_place_de_Lille.jpg',credit:'Wikimedia Commons · CC BY-SA 3.0'};
     popupPhotoCache.set(d.code,x); return x;
   }
-  const fallback={url:'',credit:''};
+  const fallback={url:'',credit:'',loading:true};
   popupPhotoCache.set(d.code,fallback);
-  fetch('https://fr.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(d.name))
-    .then(r=>r.ok?r.json():null).then(j=>{
-      const thumb=j?.thumbnail?.source;
-      if(thumb){
-        popupPhotoCache.set(d.code,{url:thumb,credit:'Wikimedia Commons / Wikipédia'});
-        const img=document.querySelector('[data-photo-code="'+d.code+'"]');
-        if(img){img.src=thumb;img.style.display='block';}
-        const cr=document.querySelector('[data-photo-credit="'+d.code+'"]');
-        if(cr)cr.textContent='Wikipédia / Wikimedia Commons';
-      }
-    }).catch(()=>{});
+  const wp='https://fr.wikipedia.org/api/rest_v1/page/summary/'+encodeURIComponent(d.name);
+  fetch(wp,{mode:'cors'}).then(r=>r.ok?r.json():null).then(j=>{
+    const thumb=j?.thumbnail?.source;
+    if(thumb){
+      popupPhotoCache.set(d.code,{url:thumb,credit:'Wikipédia / Wikimedia Commons'});
+      const img=document.querySelector('[data-photo-code="'+d.code+'"]');
+      if(img){img.src=thumb;img.style.display='block';img.onload=()=>{if(map._popup)map._popup.update();};}
+      const cr=document.querySelector('[data-photo-credit="'+d.code+'"]');
+      if(cr)cr.textContent='Wikipédia / Wikimedia Commons';
+      return;
+    }
+    return fetch('https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=1&gsrsearch='+encodeURIComponent(d.name+' France')+'&prop=imageinfo&iiprop=url&iiurlwidth=960&format=json&origin=*',{mode:'cors'});
+  }).then(r=>r&&r.ok?r.json():null).then(j=>{
+    const pages=j?.query?.pages;
+    if(!pages)return;
+    const first=Object.values(pages)[0];
+    const thumb=first?.imageinfo?.[0]?.thumburl||first?.imageinfo?.[0]?.url;
+    if(!thumb)return;
+    popupPhotoCache.set(d.code,{url:thumb,credit:'Wikimedia Commons'});
+    const img=document.querySelector('[data-photo-code="'+d.code+'"]');
+    if(img){img.src=thumb;img.style.display='block';img.onload=()=>{if(map._popup)map._popup.update();};}
+    const cr=document.querySelector('[data-photo-credit="'+d.code+'"]');
+    if(cr)cr.textContent='Wikimedia Commons';
+  }).catch(()=>{});
   return fallback;
 }
 function popup(d){
@@ -158,18 +175,9 @@ function popup(d){
       <div><span>Note finale</span><div class="popupRank">Classement : ${rankFor(d)}</div></div>
       <strong>${fmt(d.note)} / 10</strong>
     </div>
-    <div class="popupMetrics">
-      <div class="popupMetric">Loyer <b>${fmt(d.loyer)} €/m²</b></div>
-      <div class="popupMetric">Prix médian <b>${fmt(d.prix)} €/m²</b></div>
-      <div class="popupMetric">Rendement brut <b>${fmt(d.rendement)} %</b></div>
-      <div class="popupMetric">Démographie <b>${fmt(d.demo)} %/an</b></div>
-      <div class="popupMetric">15–29 ans <b>${fmt(d.young)} %</b></div>
-      <div class="popupMetric">Ratio actifs / (chômeurs + inactifs) <b>${fmt(d.ratio)}</b></div>
-      <div class="popupMetric">Revenu fiscal <b>${fmt(d.revenu)} €/an</b></div>
-    </div>
     <div class="subTitle">Indicateurs et sous-scores</div>
     ${POPUP_METRICS.map(m=>metricRow(d,m)).join('')}
-    <div class="methodNote">Les barres positionnent la valeur de chaque indicateur entre le minimum et le maximum observés dans les ${DATA.length.toLocaleString('fr-FR')} communes de la base. Le rond noir indique la commune sélectionnée. Le badge à droite indique le sous-score réellement utilisé par l'algorithme.</div>
+    <div class="methodNote">Les bornes des barres correspondent aux seuils mini–maxi utilisés par l'algorithme pour chaque indicateur. Le rond noir indique la valeur de la commune et la valeur affichée au-dessus du rond est le sous-score réellement utilisé dans la note finale.</div>
   </div>`;
 }
 let layer;
