@@ -28,16 +28,15 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 .popupScore strong{font-size:25px;color:#111827}
 .popupRank{font-size:11px;color:#64748b;font-weight:600;margin-top:2px}
 .subTitle{font-weight:700;font-size:14px;margin:8px 18px 8px;padding-top:4px}
-.metricRow{display:grid;grid-template-columns:205px minmax(250px,1fr) 78px;column-gap:12px;align-items:center;margin:0 18px;padding:7px 0;border-bottom:1px solid #edf0f2}
+.metricRow{display:grid;grid-template-columns:205px minmax(250px,1fr);column-gap:12px;align-items:center;margin:0 18px;padding:7px 0;border-bottom:1px solid #edf0f2}
 .metricInfo{min-width:0}
 .metricName{font-weight:700;font-size:11px;line-height:1.2}
 .metricValue{font-size:12px;font-weight:700;margin-top:2px}.metricSecondary{font-size:9.5px;color:#64748b;margin-top:2px}
 .metricBarWrap{min-width:0}
 .metricBar{position:relative;height:11px;border-radius:6px;background:linear-gradient(90deg,#d73027 0%,#fc8d59 25%,#fee08b 50%,#d9ef8b 68%,#91cf60 84%,#1a9850 100%);border:1px solid #c9ced2;box-sizing:border-box}
 .metricMarker{position:absolute;top:50%;width:16px;height:16px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 0 2px #555;transform:translate(-50%,-50%)}
-.metricScoreLabel{position:absolute;bottom:17px;transform:translateX(-50%);font-size:10px;font-weight:800;color:#111827;white-space:nowrap}
+.metricScoreLabel{position:absolute;bottom:17px;transform:translateX(-50%);font-size:10px;font-weight:800;color:#111827;white-space:nowrap;background:#fff;padding:0 2px;border-radius:3px;line-height:1.1}
 .metricBounds{display:flex;justify-content:space-between;font-size:9px;color:#64748b;margin-top:3px}
-.subBadge{justify-self:end;font-size:10px;font-weight:700;background:#eef8ee;color:#1f5130;border-radius:6px;padding:6px 7px;text-align:center;line-height:1.2;white-space:nowrap}
 .scaleLegend{font-size:9px;color:#64748b;margin:2px 18px 0}
 .methodNote{font-size:9.5px;color:#64748b;background:#f5f8fb;border-radius:8px;padding:8px 10px;margin:10px 18px 14px;line-height:1.35}
 .metricIcon{width:30px;height:30px;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;margin-right:8px;vertical-align:middle;background:#f1f5f9;color:#334155}
@@ -46,9 +45,8 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 @media(max-width:700px){
   .popupCard{width:min(94vw,560px)}
   .popupHead{grid-template-columns:1fr 125px}.popupPhoto{width:125px;height:70px}
-  .metricRow{grid-template-columns:145px minmax(145px,1fr) 65px;column-gap:8px}
+  .metricRow{grid-template-columns:145px minmax(145px,1fr);column-gap:8px}
   .metricScoreLabel{font-size:9px}
-  .subBadge{font-size:9px;padding:5px 5px}
   .metricName{font-size:10px}
 }
 #communeChoice{width:100%;margin-top:2px;padding:5px;border:1px solid #aaa;border-radius:6px;background:#fff;font-size:12px;display:none;min-height:34px}
@@ -98,7 +96,6 @@ function buildPopupStats(){
   POPUP_METRICS.forEach(m=>stats[m.key]={min:m.scale[0],max:m.scale[1]});
   return stats;
 }
-function scoreMax(m){return ['score_prix','score_loyer','score_ratio'].includes(m.sub)?1.2:1}
 function rankFor(d){
   const sorted=[...DATA].sort((a,b)=>Number(b.note)-Number(a.note));
   const idx=sorted.findIndex(x=>x.code===d.code);
@@ -108,8 +105,7 @@ function metricRow(d,m){
   const st=popupStats[m.key], v=Number(d[m.key]);
   const range=st.max-st.min;
   const pct=range>0?Math.max(0,Math.min(100,((v-st.min)/range)*100)):50;
-  const score=Number(d[m.sub]);
-  const scoreTxt=fmt(score);
+  const valueTxt=fmt(v)+(m.unit?' '+m.unit:'');
   const icon=ICONS[m.icon]||'';
   const secondary=m.secondary?m.secondary(d):'';
   return `<div class="metricRow">
@@ -118,12 +114,11 @@ function metricRow(d,m){
     </div>
     <div class="metricBarWrap">
       <div class="metricBar" title="Échelle basée sur les bornes de notation de l'algorithme">
-        <span class="metricScoreLabel" style="left:${pct.toFixed(2)}%">${scoreTxt}</span>
+        <span class="metricScoreLabel" style="left:${pct.toFixed(2)}%">${valueTxt}</span>
         <span class="metricMarker" style="left:${pct.toFixed(2)}%"></span>
       </div>
       <div class="metricBounds"><span>${m.labels[0]}</span><span>${m.labels[1]}</span></div>
     </div>
-    <div class="subBadge">Sous-score<br>${scoreTxt} / ${fmt(scoreMax(m))}</div>
   </div>`;
 }
 function photoFor(d){
@@ -177,7 +172,7 @@ function popup(d){
     </div>
     <div class="subTitle">Indicateurs et sous-scores</div>
     ${POPUP_METRICS.map(m=>metricRow(d,m)).join('')}
-    <div class="methodNote">Les bornes des barres correspondent aux seuils mini–maxi utilisés par l'algorithme pour chaque indicateur. Le rond noir indique la valeur de la commune et la valeur affichée au-dessus du rond est le sous-score réellement utilisé dans la note finale.</div>
+    <div class="methodNote">Les bornes des barres correspondent aux seuils mini–maxi utilisés par l'algorithme pour chaque indicateur. Le rond noir indique la position de la valeur de la commune sur l’échelle. La valeur affichée au-dessus du rond reprend la valeur de l’indicateur affichée à gauche. Le sous-score n’est pas affiché dans cette fenêtre.</div>
   </div>`;
 }
 let layer;
