@@ -30,7 +30,7 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 .subTitle{font-weight:700;font-size:14px;margin:8px 18px 8px;padding-top:4px}
 .metricRow{display:grid;grid-template-columns:205px minmax(150px,0.5fr) minmax(185px,1fr);column-gap:12px;align-items:center;margin:0 18px;padding:8px 0;border-bottom:1px solid #edf0f2}
 .metricComment{font-size:10px;font-weight:700;line-height:1.2;color:#475569;min-width:0}
-.metricComment.good{color:#15803d}.metricComment.warn{color:#c2410c}.metricComment.bad{color:#dc2626}
+.metricComment.good{color:#15803d}.metricComment.naComment{color:#64748b}.metricBar.naBar{background:#eef1f3!important}.metricNA{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:9px;font-weight:700;color:#94a3b8}.naValue{color:#94a3b8}.popupScoreNA{background:#f5f5f5!important}.metricComment.warn{color:#c2410c}.metricComment.bad{color:#dc2626}
 .metricInfo{min-width:0}
 .metricName{font-weight:700;font-size:11px;line-height:1.2}
 .metricValue{font-size:12px;font-weight:700;margin-top:2px}.metricSecondary{font-size:9.5px;color:#64748b;margin-top:2px}
@@ -100,34 +100,34 @@ function buildPopupStats(){
   return stats;
 }
 function rankFor(d){
+  if(!d || d.note==null || Number.isNaN(Number(d.note))) return 'N/A';
   const sorted=[...DATA].sort((a,b)=>Number(b.note)-Number(a.note));
   const idx=sorted.findIndex(x=>x.code===d.code);
-  return idx<0?'—':(idx+1).toLocaleString('fr-FR')+' / '+DATA.length.toLocaleString('fr-FR');
+  return idx<0?'N/A':(idx+1).toLocaleString('fr-FR')+' / '+DATA.length.toLocaleString('fr-FR');
 }
 function metricComment(m,v){
   const c=m.classes.find(x=>v>=x[0] && v<x[1]);
   return c||m.classes[m.classes.length-1];
 }
 function metricRow(d,m){
-  const st=popupStats[m.key], v=Number(d[m.key]);
-  const range=st.max-st.min;
+  const v=d && d[m.key]!=null ? Number(d[m.key]) : null;
+  const icon=ICONS[m.icon]||'';
+  if(v==null || Number.isNaN(v)){
+    return `<div class="metricRow metricRowNA">
+      <div class="metricInfo"><div class="metricLabelLine"><span class="metricIcon">${icon}</span><span><span class="metricName">${m.name}${m.unit?' ('+m.unit+')':''}</span><br><span class="metricValue naValue">N/A</span></span></div></div>
+      <div class="metricBarWrap"><div class="metricBar naBar"><span class="metricNA">N/A</span></div><div class="metricBounds"><span>${m.labels[0]}</span><span>${m.labels[1]}</span></div></div>
+      <div class="metricComment naComment">Donnée non disponible</div>
+    </div>`;
+  }
+  const st=popupStats[m.key], range=st.max-st.min;
   const pct=range>0?Math.max(0,Math.min(100,((v-st.min)/range)*100)):50;
   const valueDisplay = m.key==='revenu' ? Math.round(v).toLocaleString('fr-FR') : fmt(v);
   const valueTxt=valueDisplay+(m.unit?' '+m.unit:'');
-  const icon=ICONS[m.icon]||'';
   const secondary=m.secondary?m.secondary(d):'';
   const cls=metricComment(m,v);
   return `<div class="metricRow">
-    <div class="metricInfo">
-      <div class="metricLabelLine"><span class="metricIcon">${icon}</span><span><span class="metricName">${m.name}${m.unit?' ('+m.unit+')':''}</span><br><span class="metricValue">${valueDisplay}${m.unit?' '+m.unit:''}</span>${secondary?'<br><span class="metricSecondary">'+secondary+'</span>':''}</span></div>
-    </div>
-    <div class="metricBarWrap">
-      <div class="metricBar" title="Échelle en 6 classes de notation">
-        <span class="metricScoreLabel" style="left:${pct.toFixed(2)}%">${valueTxt}</span>
-        <span class="metricMarker" style="left:${pct.toFixed(2)}%"></span>
-      </div>
-      <div class="metricBounds"><span>${m.labels[0]}</span><span>${m.labels[1]}</span></div>
-    </div>
+    <div class="metricInfo"><div class="metricLabelLine"><span class="metricIcon">${icon}</span><span><span class="metricName">${m.name}${m.unit?' ('+m.unit+')':''}</span><br><span class="metricValue">${valueDisplay}${m.unit?' '+m.unit:''}</span>${secondary?'<br><span class="metricSecondary">'+secondary+'</span>':''}</span></div></div>
+    <div class="metricBarWrap"><div class="metricBar" title="Échelle en 6 classes de notation"><span class="metricScoreLabel" style="left:${pct.toFixed(2)}%">${valueTxt}</span><span class="metricMarker" style="left:${pct.toFixed(2)}%"></span></div><div class="metricBounds"><span>${m.labels[0]}</span><span>${m.labels[1]}</span></div></div>
     <div class="metricComment ${cls[3]}">${cls[2]}</div>
   </div>`;
 }
@@ -191,24 +191,21 @@ function photoFor(d){
 function popup(d){
   if(!popupStats) popupStats=buildPopupStats();
   const ph=photoFor(d);
+  const rated=d && d.note!=null;
+  const noteText=rated ? `${fmt(d.note)} / 10` : 'N/A';
   return `<div class="popupCard">
     <div class="popupHead">
       <div><h3>${d.name}</h3><div class="meta">INSEE ${d.code}<br>Département : ${d.code.slice(0,2)}</div></div>
-      <div>
-        <img class="popupPhoto" data-photo-code="${d.code}" src="${ph.url}" alt="Photo de ${d.name}" ${ph.url?'':'style="display:none"'} onerror="this.style.display='none'">
-        <div class="popupPhotoCredit" data-photo-credit="${d.code}">${ph.credit}</div>
-      </div>
+      <div><img class="popupPhoto" data-photo-code="${d.code}" src="${ph.url}" alt="Photo de ${d.name}" ${ph.url?'':'style="display:none"'} onerror="this.style.display='none'"><div class="popupPhotoCredit" data-photo-credit="${d.code}">${ph.credit}</div></div>
     </div>
-    <div class="popupScore">
-      <div><span>Note finale</span><div class="popupRank">Classement : ${rankFor(d)}</div></div>
-      <strong>${fmt(d.note)} / 10</strong>
-    </div>
+    <div class="popupScore ${rated?'':'popupScoreNA'}"><div><span>Note finale</span><div class="popupRank">Classement : ${rankFor(d)}</div></div><strong>${noteText}</strong></div>
     <div class="subTitle">Indicateurs et sous-scores</div>
     ${POPUP_METRICS.map(m=>metricRow(d,m)).join('')}
-    <div class="methodNote">Les bornes des barres correspondent aux seuils mini–maxi utilisés par l'algorithme pour chaque indicateur. Le rond noir indique la position de la valeur de la commune sur l’échelle. La valeur affichée au-dessus du rond reprend la valeur de l’indicateur affichée à gauche. Le sous-score n’est pas affiché dans cette fenêtre.</div>
+    <div class="methodNote">${rated?'Les bornes des barres correspondent aux seuils mini–maxi utilisés par l’algorithme pour chaque indicateur. Le rond noir indique la position de la valeur de la commune sur l’échelle.':'Cette commune ne dispose pas des données nécessaires pour calculer la note globale. Les indicateurs non disponibles sont affichés N/A.'}</div>
   </div>`;
 }
 let layer;
+let communeRecords=[];
 let selectedCode=null;
 let selectedLayer=null;
 function norm(s){return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
@@ -216,13 +213,11 @@ function refreshChoices(matches){
   const sel=document.getElementById('communeChoice');
   const lab=document.getElementById('choiceLabel');
   sel.innerHTML='';
-  if(matches.length<=1){
-    sel.style.display='none'; lab.style.display='none'; return;
-  }
-  matches.slice(0,100).forEach(d=>{
+  if(matches.length<=1){sel.style.display='none';lab.style.display='none';return;}
+  matches.slice(0,100).forEach(r=>{
     const o=document.createElement('option');
-    o.value=d.code;
-    o.textContent=d.name+' — INSEE '+d.code+' — note '+fmt(d.note)+'/10';
+    o.value=r.code;
+    o.textContent=r.name+' — INSEE '+r.code+(r.data&&r.data.note!=null?' — note '+fmt(r.data.note)+'/10':' — note N/A');
     sel.appendChild(o);
   });
   sel.style.display='block'; lab.style.display='block';
@@ -243,8 +238,9 @@ function highlightSelected(code){
 
 function zoomToData(d){
   if(!d||!layer)return;
-  const l=layer.getLayers().find(x=>String(x.feature.properties.code||x.feature.properties.CODE||'').padStart(5,'0')===d.code);
-  if(l){highlightSelected(d.code);map.fitBounds(l.getBounds(),{maxZoom:14,padding:[30,30]});l.openPopup();}
+  const code=String(d.code).padStart(5,'0');
+  const l=layer.getLayers().find(x=>String(x.feature.properties.code||x.feature.properties.CODE||'').padStart(5,'0')===code);
+  if(l){highlightSelected(code);map.fitBounds(l.getBounds(),{maxZoom:14,padding:[30,30]});l.openPopup();}
 }
 function selectedDepartments(){
   return [...document.querySelectorAll('#deptMenu input[type="checkbox"]:checked:not(#deptAll)')].map(x=>x.value);
@@ -263,28 +259,30 @@ function apply(){
   const deps=selectedDepartments();
   const th=Number(document.getElementById('threshold').value);
   const yth=Number(document.getElementById('yieldThreshold').value);
-  const matches=DATA.filter(d=>
-    (!q||norm(d.name).includes(q)||d.code===q) &&
-    (!deps.length||deps.includes(d.code.slice(0,2))) &&
-    (th<0||d.note>=th) &&
-    (yth<0||Number(d.rendement)>=yth)
-  );
+  const matches=communeRecords.filter(r=>{
+    const d=r.data;
+    const textOk=!q||norm(r.name).includes(q)||r.code===q;
+    const deptOk=!deps.length||deps.includes(r.code.slice(0,2));
+    const scoreOk=!d ? (th<0&&yth<0) : (th<0||d.note>=th) && (yth<0||Number(d.rendement)>=yth);
+    return textOk&&deptOk&&scoreOk;
+  });
   refreshChoices(matches);
-  let c=0;
+  let visible=0, ratedVisible=0;
   layer.eachLayer(l=>{
     const code=String(l.feature.properties.code||l.feature.properties.CODE||'').padStart(5,'0');
-    const d=byCode.get(code);
-    const ok=d &&
-      (!q||norm(d.name).includes(q)||code===q) &&
-      (!deps.length||deps.includes(code.slice(0,2))) &&
-      (th<0||d.note>=th) &&
-      (yth<0||Number(d.rendement)>=yth);
-    l.setStyle({fillOpacity:ok?.72:0,opacity:ok?0.8:0});
-    if(ok)c++;
+    const r=communeRecords.find(x=>x.code===code);
+    const d=r?.data;
+    const textOk=!q||norm(r?.name||'').includes(q)||code===q;
+    const deptOk=!deps.length||deps.includes(code.slice(0,2));
+    const scoreOk=!d ? (th<0&&yth<0) : (th<0||d.note>=th) && (yth<0||Number(d.rendement)>=yth);
+    const ok=textOk&&deptOk&&scoreOk;
+    const hasData=!!d;
+    l.setStyle({fillOpacity:ok?(hasData?.72:.12):0,opacity:ok?(hasData?.8:.45):0});
+    if(ok){visible++;if(hasData)ratedVisible++;}
   });
   if(selectedCode) highlightSelected(selectedCode);
-  document.getElementById('status').textContent=c+' commune'+(c>1?'s':'')+' affichée'+(c>1?'s':'');
-  if(matches.length===1)zoomToData(matches[0]);
+  document.getElementById('status').textContent=visible.toLocaleString('fr-FR')+' commune'+(visible>1?'s':'')+' affichée'+(visible>1?'s':'')+' · '+ratedVisible.toLocaleString('fr-FR')+' notée'+(ratedVisible>1?'s':'');
+  if(matches.length===1) zoomToData(matches[0].data||{code:matches[0].code,name:matches[0].name,note:null});
 }
 
 async function load(){
@@ -295,17 +293,21 @@ async function load(){
     if(!r.ok) throw new Error('HTTP '+r.status);
     const g=await r.json();
 
+    communeRecords=[];
     layer=L.geoJSON(g,{
       style:f=>{
         const code=String(f.properties.code||f.properties.CODE||'').padStart(5,'0');
         const d=byCode.get(code);
-        return {fillColor:color(d?.note),color:'#777',weight:.45,
-                fillOpacity:d?.note!=null?.72:.12};
+        return {fillColor:color(d?.note),color:'#777',weight:.45,fillOpacity:d?.note!=null?.72:.12,opacity:.8};
       },
       onEachFeature:(f,l)=>{
         const code=String(f.properties.code||f.properties.CODE||'').padStart(5,'0');
         const d=byCode.get(code);
-        if(d){ l.bindPopup(popup(d),{maxWidth:780,minWidth:620,autoPanPadding:[30,30],className:'lbb-popup'}); l.on('click',()=>highlightSelected(code)); }
+        const name=f.properties.nom||f.properties.name||d?.name||('Commune '+code);
+        const rec={code,name,data:d,layer:l};
+        communeRecords.push(rec);
+        l.bindPopup(popup(d||{code,name,note:null}),{maxWidth:780,minWidth:620,autoPanPadding:[30,30],className:'lbb-popup'});
+        l.on('click',()=>highlightSelected(code));
       }
     }).addTo(map);
 
@@ -349,14 +351,15 @@ async function load(){
     });
 
     updateDeptButton();
-    document.getElementById('status').textContent=DATA.length+' communes notées';
+    document.getElementById('status').textContent=communeRecords.length.toLocaleString('fr-FR')+' communes affichées · '+DATA.length.toLocaleString('fr-FR')+' notées';
     ['search','threshold','yieldThreshold'].forEach(id=>{
       document.getElementById(id).addEventListener('input',apply);
       document.getElementById(id).addEventListener('change',apply);
     });
     document.getElementById('communeChoice').addEventListener('change',()=>{
-      const d=byCode.get(document.getElementById('communeChoice').value);
-      if(d) zoomToData(d);
+      const code=document.getElementById('communeChoice').value;
+      const r=communeRecords.find(x=>x.code===code);
+      if(r) zoomToData(r.data||{code:r.code,name:r.name,note:null});
     });
   }catch(e){
     document.getElementById('status').textContent='Erreur de chargement des contours : '+e.message;
