@@ -209,6 +209,8 @@ function popup(d){
   </div>`;
 }
 let layer;
+let selectedCode=null;
+let selectedLayer=null;
 function norm(s){return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 function refreshChoices(matches){
   const sel=document.getElementById('communeChoice');
@@ -225,13 +227,27 @@ function refreshChoices(matches){
   });
   sel.style.display='block'; lab.style.display='block';
 }
+function highlightSelected(code){
+  selectedCode=String(code).padStart(5,'0');
+  if(selectedLayer){ layer.resetStyle(selectedLayer); selectedLayer=null; }
+  if(!layer) return;
+  layer.eachLayer(l=>{
+    const c=String(l.feature?.properties?.code||l.feature?.properties?.CODE||'').padStart(5,'0');
+    if(c===selectedCode){
+      selectedLayer=l;
+      l.setStyle({color:'#000',weight:4,opacity:1,fillOpacity:.88});
+      if(l.bringToFront) l.bringToFront();
+    }
+  });
+}
+
 function zoomToData(d){
   if(!d||!layer)return;
   const l=layer.getLayers().find(x=>String(x.feature.properties.code||x.feature.properties.CODE||'').padStart(5,'0')===d.code);
-  if(l){map.fitBounds(l.getBounds(),{maxZoom:14,padding:[30,30]});l.openPopup();}
+  if(l){highlightSelected(d.code);map.fitBounds(l.getBounds(),{maxZoom:14,padding:[30,30]});l.openPopup();}
 }
 function selectedDepartments(){
-  return [...document.querySelectorAll('#deptMenu input[type="checkbox"]:checked')].map(x=>x.value);
+  return [...document.querySelectorAll('#deptMenu input[type="checkbox"]:checked:not(#deptAll)')].map(x=>x.value);
 }
 function updateDeptButton(){
   const vals=selectedDepartments();
@@ -266,6 +282,7 @@ function apply(){
     l.setStyle({fillOpacity:ok?.72:0,opacity:ok?0.8:0});
     if(ok)c++;
   });
+  if(selectedCode) highlightSelected(selectedCode);
   document.getElementById('status').textContent=c+' commune'+(c>1?'s':'')+' affichée'+(c>1?'s':'');
   if(matches.length===1)zoomToData(matches[0]);
 }
@@ -288,7 +305,7 @@ async function load(){
       onEachFeature:(f,l)=>{
         const code=String(f.properties.code||f.properties.CODE||'').padStart(5,'0');
         const d=byCode.get(code);
-        if(d) l.bindPopup(popup(d),{maxWidth:780,minWidth:620,autoPanPadding:[30,30],className:'lbb-popup'});
+        if(d){ l.bindPopup(popup(d),{maxWidth:780,minWidth:620,autoPanPadding:[30,30],className:'lbb-popup'}); l.on('click',()=>highlightSelected(code)); }
       }
     }).addTo(map);
 
