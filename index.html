@@ -15,7 +15,27 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 .deptOption input{margin-right:6px}
 #status{font-size:12px;color:#555}.legend{background:#fff;padding:8px;border-radius:6px;line-height:19px;box-shadow:0 1px 5px #0004}
 .sw{display:inline-block;width:18px;height:12px;margin-right:5px;border:1px solid #777}
+
 .score{font-size:18px;font-weight:bold}
+.popupCard{min-width:430px;max-width:620px;font-family:Arial,sans-serif}
+.popupHead h3{margin:0 0 2px;font-size:20px;line-height:1.15}
+.popupHead .meta{font-size:11px;color:#666;margin-bottom:8px}
+.popupScore{display:flex;align-items:center;justify-content:space-between;background:#eef8ee;border-radius:9px;padding:8px 10px;margin:7px 0 10px}
+.popupScore strong{font-size:24px}
+.popupMetrics{display:grid;grid-template-columns:1fr 1fr;gap:5px 14px;font-size:12px;margin-bottom:10px}
+.popupMetric{padding:3px 0;border-bottom:1px solid #eee}
+.subTitle{font-weight:700;font-size:13px;margin:8px 0 5px}
+.metricRow{margin:7px 0}
+.metricTop{display:flex;justify-content:space-between;gap:8px;font-size:12px;align-items:baseline}
+.metricTop .metricName{font-weight:600}
+.metricTop .metricValue{font-weight:700}
+.metricBar{position:relative;height:11px;border-radius:7px;margin:5px 0 2px;background:linear-gradient(90deg,#d73027 0%,#fc8d59 25%,#fee08b 50%,#d9ef8b 68%,#91cf60 84%,#1a9850 100%);border:1px solid #bbb}
+.metricMarker{position:absolute;top:50%;width:14px;height:14px;border-radius:50%;background:#111;border:2px solid #fff;box-shadow:0 0 2px #555;transform:translate(-50%,-50%)}
+.metricBounds{display:flex;justify-content:space-between;font-size:10px;color:#666}
+.subBadge{font-size:11px;font-weight:700;background:#edf7ed;border-radius:5px;padding:3px 6px;white-space:nowrap}
+.methodNote{font-size:10px;color:#666;background:#f5f6f7;border-radius:7px;padding:7px;margin-top:8px;line-height:1.3}
+@media(max-width:700px){.popupCard{min-width:280px;max-width:430px}.popupMetrics{grid-template-columns:1fr}}
+
 #communeChoice{width:100%;margin-top:2px;padding:5px;border:1px solid #aaa;border-radius:6px;background:#fff;font-size:12px;display:none;min-height:34px}
 #choiceLabel{display:none;font-size:12px;color:#555;margin:2px 0 2px}</style></head><body>
 <div id="panel"><h2>Algorithme périurbain</h2>
@@ -40,12 +60,69 @@ const base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Wor
 L.control.layers({'Fond routier avec noms':base},null,{collapsed:true}).addTo(map);
 function color(n){if(n==null)return'#bdbdbd';if(n<4)return'#d73027';if(n<6)return'#fc8d59';if(n<7)return'#fee08b';if(n<8)return'#d9ef8b';if(n<9)return'#91cf60';return'#1a9850'}
 function fmt(v,s=''){return v==null?'—':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2})+s}
-function popup(d){return `<b>${d.name}</b><br><small>INSEE ${d.code}</small><hr><div class="score">Note : ${fmt(d.note)} / 10</div><br>
-Loyer : ${fmt(d.loyer)} €/m²<br>Prix médian : ${fmt(d.prix)} €/m²<br>Rendement brut : ${fmt(d.rendement)} %<br>
-Démographie : ${fmt(d.demo)} %/an<br>15–29 ans : ${fmt(d.young)} %<br>
-Ratio actifs / (chômeurs + inactifs) : ${fmt(d.ratio)}<br>Revenu fiscal : ${fmt(d.revenu)} €/an<hr>
-<b>Sous-scores</b><br>Loyer : ${fmt(d.score_loyer)}<br>Prix/rendement : ${fmt(d.score_prix)}<br>
-Démographie : ${fmt(d.score_demo)}<br>15–29 : ${fmt(d.score_young)}<br>Ratio : ${fmt(d.score_ratio)}<br>Revenu : ${fmt(d.score_revenu)}`}
+const POPUP_METRICS=[
+  {key:'loyer',name:'Loyer moyen',unit:'€/m²',sub:'score_loyer',minLabel:'min',maxLabel:'max'},
+  {key:'prix',name:'Prix médian',unit:'€/m²',sub:'score_prix',minLabel:'min',maxLabel:'max'},
+  {key:'rendement',name:'Rendement brut',unit:'%',sub:'score_prix',minLabel:'min',maxLabel:'max'},
+  {key:'demo',name:'Croissance démographique',unit:'%/an',sub:'score_demo',minLabel:'min',maxLabel:'max'},
+  {key:'young',name:'Part des 15–29 ans',unit:'%',sub:'score_young',minLabel:'min',maxLabel:'max'},
+  {key:'ratio',name:'Ratio actifs / (chômeurs + inactifs)',unit:'',sub:'score_ratio',minLabel:'min',maxLabel:'max'},
+  {key:'revenu',name:'Revenu fiscal moyen',unit:'€/an',sub:'score_revenu',minLabel:'min',maxLabel:'max'}
+];
+let popupStats=null;
+function buildPopupStats(){
+  const stats={};
+  POPUP_METRICS.forEach(m=>{
+    const vals=DATA.map(d=>Number(d[m.key])).filter(Number.isFinite);
+    stats[m.key]={min:Math.min(...vals),max:Math.max(...vals)};
+  });
+  return stats;
+}
+function scoreTo10(score){
+  // Visual display only: map the algorithm's normalized score (-0.5 to max)
+  // into a 0–10 position while retaining the exact sub-score in the badge.
+  const max=Math.max(1,Number(score));
+  const min=-0.5;
+  const ceiling=Math.max(1, max);
+  return Math.max(0,Math.min(10,((Number(score)-min)/(ceiling-min))*10));
+}
+function metricRow(d,m){
+  const st=popupStats[m.key], v=Number(d[m.key]);
+  const range=st.max-st.min;
+  const pct=range>0?((v-st.min)/range)*100:50;
+  const score=Number(d[m.sub]);
+  const score10=scoreTo10(score);
+  const value=fmt(v);
+  const min=fmt(st.min);
+  const max=fmt(st.max);
+  return `<div class="metricRow">
+    <div class="metricTop"><span class="metricName">${m.name} ${m.unit?'('+m.unit+')':''}</span><span class="subBadge">Sous-score ${fmt(score)} / max. ${m.sub==='score_prix'||m.sub==='score_loyer'||m.sub==='score_ratio'?'1,2':'1'}</span></div>
+    <div class="metricTop"><span class="metricValue">${value}${m.unit?' '+m.unit:''}</span></div>
+    <div class="metricBar" title="Position de la valeur dans la plage des 5 207 communes">
+      <span class="metricMarker" style="left:${pct.toFixed(2)}%"></span>
+    </div>
+    <div class="metricBounds"><span>${min}</span><span>${max}</span></div>
+  </div>`;
+}
+function popup(d){
+  if(!popupStats) popupStats=buildPopupStats();
+  return `<div class="popupCard">
+    <div class="popupHead"><h3>${d.name}</h3><div class="meta">INSEE ${d.code}</div></div>
+    <div class="popupScore"><span>Note finale</span><strong>${fmt(d.note)} / 10</strong></div>
+    <div class="popupMetrics">
+      <div class="popupMetric">Loyer : <b>${fmt(d.loyer)} €/m²</b></div>
+      <div class="popupMetric">Prix médian : <b>${fmt(d.prix)} €/m²</b></div>
+      <div class="popupMetric">Rendement brut : <b>${fmt(d.rendement)} %</b></div>
+      <div class="popupMetric">Démographie : <b>${fmt(d.demo)} %/an</b></div>
+      <div class="popupMetric">15–29 ans : <b>${fmt(d.young)} %</b></div>
+      <div class="popupMetric">Ratio actifs / (chômeurs + inactifs) : <b>${fmt(d.ratio)}</b></div>
+      <div class="popupMetric">Revenu fiscal : <b>${fmt(d.revenu)} €/an</b></div>
+    </div>
+    <div class="subTitle">Position dans la distribution des communes</div>
+    ${POPUP_METRICS.map(m=>metricRow(d,m)).join('')}
+    <div class="methodNote">La barre positionne la valeur de l'indicateur entre le minimum et le maximum observés dans les ${DATA.length.toLocaleString('fr-FR')} communes de la base. Le rond noir indique la valeur de la commune. Le badge indique le sous-score réellement utilisé par l'algorithme.</div>
+  </div>`;
+}
 let layer;
 function norm(s){return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();}
 function refreshChoices(matches){
