@@ -13,7 +13,7 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 .multiMenu.open{display:block}
 .deptOption{display:flex;align-items:center;gap:8px;padding:6px 4px;font-size:12px;cursor:pointer;line-height:1.2}
 .deptOption input{width:14px;height:14px;flex:0 0 14px;margin:0}
-#status{font-size:12px;color:#555}.legend{background:#fff;padding:8px;border-radius:6px;line-height:19px;box-shadow:0 1px 5px #0004}
+#status{font-size:12px;color:#555}.algoInfo{font-size:10px;color:#64748b;background:#f6f8fa;border-radius:6px;padding:6px 8px;margin:2px 0 7px;line-height:1.3}.legend{background:#fff;padding:8px;border-radius:6px;line-height:19px;box-shadow:0 1px 5px #0004}
 .sw{display:inline-block;width:18px;height:12px;margin-right:5px;border:1px solid #777}
 
 .score{font-size:18px;font-weight:bold}
@@ -54,8 +54,11 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 }
 #communeChoice{width:100%;margin-top:2px;padding:5px;border:1px solid #aaa;border-radius:6px;background:#fff;font-size:12px;display:none;min-height:34px}
 #choiceLabel{display:none;font-size:12px;color:#555;margin:2px 0 2px}</style></head><body>
-<div id="panel"><h2>Algorithme périurbain</h2>
+<div id="panel"><h2 id="appTitle">Algorithme périurbain</h2>
+<div class="filterLabel">Mode d’analyse</div>
+<select id="algorithmMode"><option value="periurbain">Algorithme périurbain — mise en location</option><option value="mdb">Algorithme marchand de biens — prototype</option></select>
 <input id="search" placeholder="Commune ou code INSEE"><div id="choiceLabel">Plusieurs communes correspondent :</div><select id="communeChoice" size="6"></select>
+<div id="algoInfo" class="algoInfo">Recherche de secteurs favorables à la mise en location.</div>
 <div class="filterLabel">Départements</div>
 <div id="deptBox" class="multiBox">
   <button type="button" id="deptButton">Tous les départements ▾</button>
@@ -76,13 +79,24 @@ const rawByCode=new Map(UNRATED_RAW.map(r=>{
 }));
 const byCode=new Map(DATA.map(x=>[x.code,x]));
 const TOTAL_RATED=DATA.length;
-const map=L.map('map',{preferCanvas:true}).setView([46.8,2.5],6);
+const map=L.map('map',{preferCanvas:true,zoomControl:false}).setView([46.8,2.5],6);
+L.control.zoom({position:'bottomright'}).addTo(map);
 const base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
   maxZoom:19,
   attribution:'&copy; Esri, HERE, Garmin, (c) OpenStreetMap contributors, and the GIS user community'
 }).addTo(map);
 L.control.layers({'Fond routier avec noms':base},null,{collapsed:true}).addTo(map);
 function color(n){if(n==null)return'#bdbdbd';if(n<4)return'#d73027';if(n<6)return'#fc8d59';if(n<7)return'#fee08b';if(n<8)return'#d9ef8b';if(n<9)return'#91cf60';return'#1a9850'}
+function scoreMDBPrice(v){if(v==null||Number.isNaN(Number(v)))return null;v=Number(v);if(v>=1500&&v<=3000)return 1.2;if(v>=1200&&v<1500)return 1.0;if(v>3000&&v<=3500)return 1.0;if(v>=1000&&v<1200)return .75;if(v>3500&&v<=4000)return .75;if(v>=800&&v<1000)return .5;if(v>4000&&v<=4500)return .5;if(v>=600&&v<800)return .25;if(v>4500&&v<=5000)return .25;return 0}
+function scoreMDBYield(v){if(v==null)return null;v=Number(v);if(v>=12)return 1.2;if(v>=10)return 1;if(v>=8)return .75;if(v>=6)return .5;if(v>=4)return .25;return 0}
+function scoreMDBRent(v){if(v==null)return null;v=Number(v);if(v>=18)return 1.2;if(v>=15)return 1;if(v>=12)return .75;if(v>=10)return .5;if(v>=8)return .25;return 0}
+function scoreMDBDemo(v){if(v==null)return null;v=Number(v);if(v>1)return 1;if(v>=.5)return .8;if(v>=0)return .5;if(v>=-.5)return .25;return 0}
+function scoreMDBRatio(v){if(v==null)return null;v=Number(v);if(v>=2.4)return 1;if(v>=2.1)return .8;if(v>=1.8)return .65;if(v>=1.5)return .5;if(v>=1.2)return .25;return 0}
+function scoreMDBIncome(v){if(v==null)return null;v=Number(v);if(v>32000)return 1;if(v>=29000)return .85;if(v>=26000)return .7;if(v>=23000)return .5;if(v>=20000)return .25;return 0}
+function scoreMDBYoung(v){if(v==null)return null;v=Number(v);if(v>=17.5)return 1;if(v>=15)return .8;if(v>=12.5)return .6;if(v>=10)return .35;return 0}
+function mdbScore(d){if(!d)return null;const parts=[['prix',scoreMDBPrice(d.prix),25],['rendement',scoreMDBYield(d.rendement),15],['loyer',scoreMDBRent(d.loyer),10],['demo',scoreMDBDemo(d.demo),15],['ratio',scoreMDBRatio(d.ratio),10],['revenu',scoreMDBIncome(d.revenu),15],['young',scoreMDBYoung(d.young),10]];const valid=parts.filter(x=>x[1]!=null);if(!valid.length)return null;const sum=valid.reduce((a,x)=>a+x[1]*x[2],0);const weights=valid.reduce((a,x)=>a+x[2],0);return Math.max(0,Math.min(10,Math.round((sum/weights)/1.2*10*100)/100));}
+function activeScore(d){return document.getElementById('algorithmMode')?.value==='mdb'?mdbScore(d):(d?.note==null?null:Number(d.note));}
+function activeAlgorithmName(){return document.getElementById('algorithmMode')?.value==='mdb'?'Marchand de biens':'Périurbain'}
 function fmt(v,s=''){return v==null?'—':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2})+s}
 const POPUP_METRICS=[
   {key:'loyer',name:'Loyer moyen',unit:'€/m²',sub:'score_loyer',icon:'rent',scale:[0,18],labels:['0','18'],classes:[[0,8,'À fuir','bad'],[8,10,'Demande faible','bad'],[10,12,'Moyen, vigilance','warn'],[12,15,'Bonne demande locative','good'],[15,18,'Forte demande locative','good'],[18,Infinity,'Excellente demande locative','good']]},
@@ -199,17 +213,17 @@ function photoFor(d){
 function popup(d){
   if(!popupStats) popupStats=buildPopupStats();
   const ph=photoFor(d);
-  const rated=d && d.note!=null;
-  const noteText=rated ? `${fmt(d.note)} / 10` : 'N/A';
+  const rated=activeScore(d)!=null;
+  const active=activeAlgorithmName(); const score=activeScore(d); const noteText=score!=null ? `${fmt(score)} / 10` : 'N/A';
   return `<div class="popupCard">
     <div class="popupHead">
       <div><h3>${d.name}</h3><div class="meta">INSEE ${d.code}<br>Département : ${d.code.slice(0,2)}</div></div>
       <div><img class="popupPhoto" data-photo-code="${d.code}" src="${ph.url}" alt="Photo de ${d.name}" ${ph.url?'':'style="display:none"'} onerror="this.style.display='none'"><div class="popupPhotoCredit" data-photo-credit="${d.code}">${ph.credit}</div></div>
     </div>
-    <div class="popupScore ${rated?'':'popupScoreNA'}"><div><span>Note finale</span><div class="popupRank">Classement : ${rankFor(d)}</div></div><strong>${noteText}</strong></div>
+    <div class="popupScore ${rated?'':'popupScoreNA'}"><div><span>Note ${active}</span><div class="popupRank">Classement : ${rankFor(d)}</div></div><strong>${noteText}</strong></div>
     <div class="subTitle">Indicateurs et sous-scores</div>
     ${POPUP_METRICS.map(m=>metricRow(d,m)).join('')}
-    <div class="methodNote">${rated?'Les bornes des barres correspondent aux seuils mini–maxi utilisés par l’algorithme pour chaque indicateur. Le rond noir indique la position de la valeur de la commune sur l’échelle.':'Cette commune ne dispose pas des données nécessaires pour calculer la note globale. Les indicateurs non disponibles sont affichés N/A.'}</div>
+    <div class="methodNote">${rated?'Les bornes des barres correspondent aux seuils mini–maxi utilisés par l’algorithme périurbain pour chaque indicateur. En mode MdB, la note affichée utilise un prototype distinct pondérant davantage le prix d’acquisition et le potentiel de revente. Le rond noir indique la position de la valeur de la commune sur l’échelle.':'Cette commune ne dispose pas des données nécessaires pour calculer la note globale. Les indicateurs non disponibles sont affichés N/A.'}</div>
   </div>`;
 }
 let layer;
@@ -272,15 +286,17 @@ function updateDeptButton(){
   else b.textContent='Aucun département ▾';
 }
 function ratedPasses(d,q,deps,showRated,th,yth,name,code){
-  if(!d || d.note==null) return false;
+  if(!d)return false;
+  const score=activeScore(d);
+  if(score==null || Number.isNaN(Number(score))) return false;
   const textOk=!q||norm(name||'').includes(q)||String(code)===q;
   const deptOk=!deps.length||deps.includes(String(code).slice(0,2));
-  if(!showRated) return false;
-  if(!textOk || !deptOk) return false;
-  if(th>=0 && Number(d.note)<th) return false;
-  if(yth>=0 && !(d.rendement!=null && Number(d.rendement)>=yth)) return false;
+  if(!showRated || !textOk || !deptOk)return false;
+  if(th>=0 && Number(score)<th)return false;
+  if(yth>=0 && !(d.rendement!=null && Number(d.rendement)>=yth))return false;
   return true;
 }
+
 function apply(){
   const q=norm(document.getElementById('search').value);
   const deps=selectedDepartments();
@@ -311,7 +327,7 @@ function apply(){
     // IMPORTANT : les contours restent toujours visibles. Seul le remplissage
     // coloré est retiré lorsque la commune ne répond plus aux critères.
     l.setStyle({
-      fillColor: showColor ? color(d.note) : '#d9dde2',
+      fillColor: showColor ? color(activeScore(d)) : '#d9dde2',
       fillOpacity: showColor ? .72 : 0,
       color: '#777',
       weight: .45,
@@ -324,7 +340,7 @@ function apply(){
 
   const totalDisplayed=communeRecords.length;
   const criteriaText = showRated
-    ? ratedVisible.toLocaleString('fr-FR')+' notée'+(ratedVisible>1?'s':'')+' répondant aux critères'
+    ? ratedVisible.toLocaleString('fr-FR')+' '+activeAlgorithmName().toLowerCase()+' notée'+(ratedVisible>1?'s':'')+' répondant aux critères'
     : 'couleurs des communes notées masquées';
   document.getElementById('status').textContent=
     totalDisplayed.toLocaleString('fr-FR')+' communes affichées · '+criteriaText+' · '+
@@ -346,7 +362,7 @@ async function load(){
       style:f=>{
         const code=String(f.properties.code||f.properties.CODE||'').padStart(5,'0');
         const d=byCode.get(code)||rawByCode.get(code);
-        return {fillColor:d?.note!=null?color(d.note):'#d9dde2',color:'#777',weight:.45,fillOpacity:d?.note!=null?.72:0,opacity:.8};
+        return {fillColor:activeScore(d)!=null?color(activeScore(d)):'#d9dde2',color:'#777',weight:.45,fillOpacity:d?.note!=null?.72:0,opacity:.8};
       },
       onEachFeature:(f,l)=>{
         const code=String(f.properties.code||f.properties.CODE||'').padStart(5,'0');
@@ -399,7 +415,16 @@ async function load(){
     });
 
     updateDeptButton();
-    apply();
+    const algoMode=document.getElementById('algorithmMode');
+    const updateAlgorithmUI=()=>{
+      const m=algoMode.value;
+      document.getElementById('appTitle').textContent=m==='mdb'?'Algorithme marchand de biens':'Algorithme périurbain';
+      document.getElementById('algoInfo').textContent=m==='mdb'?'Prototype MdB : prix d’acquisition, rendement, loyer, dynamique démographique, ratio d’activité, pouvoir d’achat et part des 15–29 ans.':'Recherche de secteurs favorables à la mise en location.';
+      document.getElementById('threshold').options[0].text=m==='mdb'?'Toutes les notes MdB':'Toutes les notes';
+      apply();
+    };
+    algoMode.addEventListener('change',updateAlgorithmUI);
+    updateAlgorithmUI();
     ['search','threshold','yieldThreshold'].forEach(id=>{
       document.getElementById(id).addEventListener('input',apply);
       document.getElementById(id).addEventListener('change',apply);
@@ -414,5 +439,5 @@ async function load(){
   }
 }
 
-const legend=L.control({position:'bottomright'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.innerHTML='<b>Note finale</b><br>'+[['<4','#d73027'],['4–<6','#fc8d59'],['6–<7','#fee08b'],['7–<8','#d9ef8b'],['8–<9','#91cf60'],['≥9','#1a9850']].map(x=>`<span class="sw" style="background:${x[1]}"></span>${x[0]}`).join('<br>');return d};legend.addTo(map);load();
+const legend=L.control({position:'bottomright'});legend.onAdd=()=>{const d=L.DomUtil.create('div','legend');d.id='scoreLegend';d.innerHTML='<b>Note finale</b><br>'+[['<4','#d73027'],['4–<6','#fc8d59'],['6–<7','#fee08b'],['7–<8','#d9ef8b'],['8–<9','#91cf60'],['≥9','#1a9850']].map(x=>`<span class="sw" style="background:${x[1]}"></span>${x[0]}`).join('<br>');return d};legend.addTo(map);load();
 </script></body></html>
