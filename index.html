@@ -238,7 +238,7 @@ function highlightSelected(code){
     const c=String(l.feature?.properties?.code||l.feature?.properties?.CODE||'').padStart(5,'0');
     if(c===selectedCode){
       selectedLayer=l;
-      l.setStyle({color:'#000',weight:4,opacity:1,fillOpacity:.88});
+      l.setStyle({color:'#000',weight:4,opacity:1});
       if(l.bringToFront) l.bringToFront();
     }
   });
@@ -263,44 +263,65 @@ function updateDeptButton(){
   else if(vals.length) b.textContent=vals.length+' département'+(vals.length>1?'s':'')+' sélectionné'+(vals.length>1?'s':'')+' ▾';
   else b.textContent='Aucun département ▾';
 }
+function ratedPasses(d,q,deps,showRated,th,yth,name,code){
+  if(!d || d.note==null) return false;
+  const textOk=!q||norm(name||'').includes(q)||String(code)===q;
+  const deptOk=!deps.length||deps.includes(String(code).slice(0,2));
+  if(!showRated) return false;
+  if(!textOk || !deptOk) return false;
+  if(th>=0 && Number(d.note)<th) return false;
+  if(yth>=0 && !(d.rendement!=null && Number(d.rendement)>=yth)) return false;
+  return true;
+}
 function apply(){
   const q=norm(document.getElementById('search').value);
   const deps=selectedDepartments();
   const showRated=allDepartmentsChecked() || deps.length>0;
   const th=Number(document.getElementById('threshold').value);
   const yth=Number(document.getElementById('yieldThreshold').value);
+
+  // Les listes de recherche restent disponibles pour toutes les communes.
   const matches=communeRecords.filter(r=>{
-    const d=r.data;
-    const rated=!!d && d.note!=null;
     const textOk=!q||norm(r.name).includes(q)||r.code===q;
     const deptOk=!deps.length||deps.includes(r.code.slice(0,2));
-    const ratingVisibilityOk=!rated || (showRated && (!deps.length || deps.includes(r.code.slice(0,2))));
-    const scoreOk=!rated ? (th<0&&yth<0) : ((th<0||d.note>=th) && (yth<0||d.rendement!=null&&Number(d.rendement)>=yth));
-    return textOk&&deptOk&&ratingVisibilityOk&&scoreOk;
+    return textOk&&deptOk;
   });
   refreshChoices(matches);
-  let visible=0, ratedVisible=0;
+
+  // Le compteur des communes notées est calculé sur DATA (5 207), pas sur le GeoJSON.
+  // Cela évite que les éventuels codes sans géométrie soient perdus dans le compteur.
+  const ratedVisible=DATA.filter(d=>ratedPasses(d,q,deps,showRated,th,yth,d.name,d.code)).length;
+
+  let visible=0;
   layer.eachLayer(l=>{
     const code=String(l.feature.properties.code||l.feature.properties.CODE||'').padStart(5,'0');
     const r=communeRecords.find(x=>x.code===code);
     const d=r?.data;
-    const rated=!!d && d.note!=null;
-    const textOk=!q||norm(r?.name||'').includes(q)||code===q;
-    const deptOk=!deps.length||deps.includes(code.slice(0,2));
-    const ratingVisibilityOk=!rated || (showRated && (!deps.length || deps.includes(code.slice(0,2))));
-    const scoreOk=!rated ? (th<0&&yth<0) : ((th<0||d.note>=th) && (yth<0||d.rendement!=null&&Number(d.rendement)>=yth));
-    const ok=textOk&&deptOk&&ratingVisibilityOk&&scoreOk;
-    const hasData=!!d;
-    if(ok){
-      visible++;
-      if(rated) ratedVisible++;
-      l.setStyle({fillColor:rated?color(d.note):'#d9dde2',fillOpacity:rated?.72:.12,opacity:rated?.8:.45});
-    }else{
-      l.setStyle({fillOpacity:0,opacity:0});
-    }
+    const name=r?.name||l.feature.properties.nom||l.feature.properties.name||'';
+    const showColor=ratedPasses(d,q,deps,showRated,th,yth,name,code);
+
+    // IMPORTANT : les contours restent toujours visibles. Seul le remplissage
+    // coloré est retiré lorsque la commune ne répond plus aux critères.
+    l.setStyle({
+      fillColor: showColor ? color(d.note) : '#d9dde2',
+      fillOpacity: showColor ? .72 : 0,
+      color: '#777',
+      weight: .45,
+      opacity: .8
+    });
+    visible++;
   });
+
   if(selectedCode) highlightSelected(selectedCode);
-  document.getElementById('status').textContent=visible.toLocaleString('fr-FR')+' commune'+(visible>1?'s':'')+' affichée'+(visible>1?'s':'')+' · '+ratedVisible.toLocaleString('fr-FR')+' notée'+(ratedVisible>1?'s':'')+' visible'+(ratedVisible>1?'s':'')+' · '+TOTAL_RATED.toLocaleString('fr-FR')+' notées dans la base';
+
+  const totalDisplayed=communeRecords.length;
+  const criteriaText = showRated
+    ? ratedVisible.toLocaleString('fr-FR')+' notée'+(ratedVisible>1?'s':'')+' répondant aux critères'
+    : 'couleurs des communes notées masquées';
+  document.getElementById('status').textContent=
+    totalDisplayed.toLocaleString('fr-FR')+' communes affichées · '+criteriaText+' · '+
+    TOTAL_RATED.toLocaleString('fr-FR')+' notées dans la base';
+
   if(matches.length===1) zoomToData(matches[0].data||{code:matches[0].code,name:matches[0].name,note:null});
 }
 
@@ -317,7 +338,7 @@ async function load(){
       style:f=>{
         const code=String(f.properties.code||f.properties.CODE||'').padStart(5,'0');
         const d=byCode.get(code)||rawByCode.get(code);
-        return {fillColor:d?.note!=null?color(d.note):'#d9dde2',color:'#777',weight:.45,fillOpacity:d?.note!=null?.72:.12,opacity:.8};
+        return {fillColor:d?.note!=null?color(d.note):'#d9dde2',color:'#777',weight:.45,fillOpacity:d?.note!=null?.72:0,opacity:.8};
       },
       onEachFeature:(f,l)=>{
         const code=String(f.properties.code||f.properties.CODE||'').padStart(5,'0');
@@ -370,7 +391,7 @@ async function load(){
     });
 
     updateDeptButton();
-    document.getElementById('status').textContent=communeRecords.length.toLocaleString('fr-FR')+' communes affichées · '+TOTAL_RATED.toLocaleString('fr-FR')+' notées dans la base';
+    apply();
     ['search','threshold','yieldThreshold'].forEach(id=>{
       document.getElementById(id).addEventListener('input',apply);
       document.getElementById(id).addEventListener('change',apply);
