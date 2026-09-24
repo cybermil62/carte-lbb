@@ -232,12 +232,20 @@ function refreshChoices(matches){
 }
 function highlightSelected(code){
   selectedCode=String(code).padStart(5,'0');
-  if(selectedLayer){ layer.resetStyle(selectedLayer); selectedLayer=null; }
+  // Ne pas utiliser resetStyle() : le style initial du GeoJSON peut
+  // réintroduire une couleur alors qu'un filtre l'a masquée.
+  if(selectedLayer){
+    // On rétablit uniquement le contour. Le remplissage actuel est conservé.
+    selectedLayer.setStyle({color:'#777',weight:.45,opacity:.8});
+    selectedLayer=null;
+  }
   if(!layer) return;
   layer.eachLayer(l=>{
     const c=String(l.feature?.properties?.code||l.feature?.properties?.CODE||'').padStart(5,'0');
     if(c===selectedCode){
       selectedLayer=l;
+      // Seul le contour est modifié : fillColor/fillOpacity restent ceux
+      // déterminés par les filtres actuellement actifs.
       l.setStyle({color:'#000',weight:4,opacity:1});
       if(l.bringToFront) l.bringToFront();
     }
