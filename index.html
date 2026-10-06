@@ -140,7 +140,14 @@ function mdbScore(d){
     [scoreMDBIncome(d.revenu),15]
   ];
   if(parts.some(x=>x[0]==null))return null;
-  return Math.max(0,Math.min(10,Math.round(parts.reduce((a,x)=>a+x[0]*x[1],0)*10*100)/100));
+  // Le score brut théorique s'étend de -0,605 à +1,13.
+  // On conserve exactement les mêmes critères, sous-scores et pondérations,
+  // mais on étire cette plage sur 0–10 afin d'éviter l'écrasement artificiel à 10/10.
+  const raw=parts.reduce((a,x)=>a+x[0]*x[1]/100,0);
+  const MIN_RAW=-0.605;
+  const MAX_RAW=1.13;
+  const note=((raw-MIN_RAW)/(MAX_RAW-MIN_RAW))*10;
+  return Math.max(0,Math.min(10,Math.round(note*100)/100));
 }
 function activeScore(d){
   return document.getElementById('algorithmMode')?.value==='mdb'
@@ -278,7 +285,7 @@ function popup(d){
     <div class="popupScore ${rated?'':'popupScoreNA'}"><div><span>Note ${active}</span><div class="popupRank">Classement : ${rankFor(d)}</div></div><strong>${noteText}</strong></div>
     <div class="subTitle">Indicateurs et sous-scores</div>
     ${POPUP_METRICS.map(m=>metricRow(d,m)).join('')}
-    <div class="methodNote">${rated?(active==='Marchand de biens'?'Algorithme MdB : prix d’achat 15 %, évolution des prix 30 %, démographie 20 %, ratio actifs/(chômeurs + inactifs) 20 %, revenu 15 %. À 1 500 €/m², le score prix est nul ; il progresse ensuite de façon continue et est plafonné à −1,20/+1,20.':'Algorithme périurbain : note historique conservée depuis la base source.'):'Cette commune ne dispose pas des données nécessaires pour calculer la note globale. Les indicateurs non disponibles sont affichés N/A.'}</div>
+    <div class="methodNote">${rated?(active==='Marchand de biens'?'Algorithme MdB : prix d’achat 15 %, évolution des prix 30 %, démographie 20 %, ratio actifs/(chômeurs + inactifs) 20 %, revenu 15 %. À 1 500 €/m², le score prix est nul ; il progresse ensuite de façon continue et est plafonné à −1,20/+1,20. La note finale est normalisée sur l’amplitude théorique des sous-scores (−0,605 à +1,13) afin d’éviter un écrasement artificiel à 10/10.':'Algorithme périurbain : note historique conservée depuis la base source.'):'Cette commune ne dispose pas des données nécessaires pour calculer la note globale. Les indicateurs non disponibles sont affichés N/A.'}</div>
   </div>`;
 }
 let layer;
