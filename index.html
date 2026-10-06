@@ -56,7 +56,7 @@ h2{font-size:17px;margin:0 0 10px}input,select{width:100%;box-sizing:border-box;
 #choiceLabel{display:none;font-size:12px;color:#555;margin:2px 0 2px}</style></head><body>
 <div id="panel"><h2 id="appTitle">Algorithme périurbain</h2>
 <div class="filterLabel">Mode d’analyse</div>
-<select id="algorithmMode"><option value="periurbain">Algorithme périurbain — mise en location</option><option value="mdb">Algorithme marchand de biens — prototype</option></select>
+<select id="algorithmMode"><option value="mdb">Algorithme marchand de biens</option><option value="periurbain">Algorithme périurbain — mise en location</option></select>
 <input id="search" placeholder="Commune ou code INSEE"><div id="choiceLabel">Plusieurs communes correspondent :</div><select id="communeChoice" size="6"></select>
 <div id="algoInfo" class="algoInfo">Recherche de secteurs favorables à la mise en location.</div>
 <div class="filterLabel">Départements</div>
@@ -78,7 +78,7 @@ const rawByCode=new Map(UNRATED_RAW.map(r=>{
   return [code,{code,name,chomeurs,loyer,demo,young,actifs,inactifs,revenu,prix,ratio,rendement,note:null}];
 }));
 const byCode=new Map(DATA.map(x=>[x.code,x]));
-const TOTAL_RATED=DATA.length;
+const TOTAL_RATED=()=>DATA.filter(d=>activeScore(d)!=null).length;
 const map=L.map('map',{preferCanvas:true,zoomControl:false}).setView([46.8,2.5],6);
 L.control.zoom({position:'bottomright'}).addTo(map);
 const base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{
@@ -87,28 +87,83 @@ const base=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Wor
 }).addTo(map);
 L.control.layers({'Fond routier avec noms':base},null,{collapsed:true}).addTo(map);
 function color(n){if(n==null)return'#bdbdbd';if(n<4)return'#d73027';if(n<6)return'#fc8d59';if(n<7)return'#fee08b';if(n<8)return'#d9ef8b';if(n<9)return'#91cf60';return'#1a9850'}
-function scoreMDBPrice(v){if(v==null||Number.isNaN(Number(v)))return null;v=Number(v);if(v>=1500&&v<=3000)return 1.2;if(v>=1200&&v<1500)return 1.0;if(v>3000&&v<=3500)return 1.0;if(v>=1000&&v<1200)return .75;if(v>3500&&v<=4000)return .75;if(v>=800&&v<1000)return .5;if(v>4000&&v<=4500)return .5;if(v>=600&&v<800)return .25;if(v>4500&&v<=5000)return .25;return 0}
-function scoreMDBYield(v){if(v==null)return null;v=Number(v);if(v>=12)return 1.2;if(v>=10)return 1;if(v>=8)return .75;if(v>=6)return .5;if(v>=4)return .25;return 0}
-function scoreMDBRent(v){if(v==null)return null;v=Number(v);if(v>=18)return 1.2;if(v>=15)return 1;if(v>=12)return .75;if(v>=10)return .5;if(v>=8)return .25;return 0}
-function scoreMDBDemo(v){if(v==null)return null;v=Number(v);if(v>1)return 1;if(v>=.5)return .8;if(v>=0)return .5;if(v>=-.5)return .25;return 0}
-function scoreMDBRatio(v){if(v==null)return null;v=Number(v);if(v>=2.4)return 1;if(v>=2.1)return .8;if(v>=1.8)return .65;if(v>=1.5)return .5;if(v>=1.2)return .25;return 0}
-function scoreMDBIncome(v){if(v==null)return null;v=Number(v);if(v>32000)return 1;if(v>=29000)return .85;if(v>=26000)return .7;if(v>=23000)return .5;if(v>=20000)return .25;return 0}
-function scoreMDBYoung(v){if(v==null)return null;v=Number(v);if(v>=17.5)return 1;if(v>=15)return .8;if(v>=12.5)return .6;if(v>=10)return .35;return 0}
-function mdbScore(d){if(!d)return null;const parts=[['prix',scoreMDBPrice(d.prix),25],['rendement',scoreMDBYield(d.rendement),15],['loyer',scoreMDBRent(d.loyer),10],['demo',scoreMDBDemo(d.demo),15],['ratio',scoreMDBRatio(d.ratio),10],['revenu',scoreMDBIncome(d.revenu),15],['young',scoreMDBYoung(d.young),10]];const valid=parts.filter(x=>x[1]!=null);if(!valid.length)return null;const sum=valid.reduce((a,x)=>a+x[1]*x[2],0);const weights=valid.reduce((a,x)=>a+x[2],0);return Math.max(0,Math.min(10,Math.round((sum/weights)/1.2*10*100)/100));}
-function activeScore(d){return document.getElementById('algorithmMode')?.value==='mdb'?mdbScore(d):(d?.note==null?null:Number(d.note));}
-function activeAlgorithmName(){return document.getElementById('algorithmMode')?.value==='mdb'?'Marchand de biens':'Périurbain'}
-function fmt(v,s=''){return v==null?'—':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2})+s}
+function scoreMDBPrice(v){
+  if(v==null||Number.isNaN(Number(v)))return null;
+  v=Number(v);
+  return Math.max(-1.2,Math.min(1.2,(v-1500)/1500));
+}
+function scoreMDBEvolution(v){
+  if(v==null||Number.isNaN(Number(v)))return null;
+  v=Number(v);
+  if(v>=20)return 1.2;
+  if(v>=15)return 1;
+  if(v>=10)return .8;
+  if(v>=5)return .6;
+  if(v>=0)return .3;
+  if(v>=-5)return 0;
+  return -.5;
+}
+function scoreMDBDemo(v){
+  if(v==null)return null;v=Number(v);
+  if(v>1)return 1;
+  if(v>=.5)return .75;
+  if(v>=.25)return .5;
+  if(v>=0)return .25;
+  if(v>=-.5)return 0;
+  return -.5;
+}
+function scoreMDBRatio(v){
+  if(v==null)return null;v=Number(v);
+  if(v>=2.4)return 1.2;
+  if(v>=2.1)return 1;
+  if(v>=1.8)return .8;
+  if(v>=1.5)return .5;
+  if(v>=1.2)return 0;
+  return -.5;
+}
+function scoreMDBIncome(v){
+  if(v==null)return null;v=Number(v);
+  if(v>32000)return 1;
+  if(v>=29000)return .8;
+  if(v>=26000)return .65;
+  if(v>=23000)return .5;
+  if(v>=20000)return 0;
+  return -.5;
+}
+function mdbScore(d){
+  if(!d)return null;
+  const parts=[
+    [scoreMDBPrice(d.prix),15],
+    [scoreMDBEvolution(d.evolution),30],
+    [scoreMDBDemo(d.demo),20],
+    [scoreMDBRatio(d.ratio),20],
+    [scoreMDBIncome(d.revenu),15]
+  ];
+  if(parts.some(x=>x[0]==null))return null;
+  return Math.max(0,Math.min(10,Math.round(parts.reduce((a,x)=>a+x[0]*x[1],0)*10*100)/100));
+}
+function activeScore(d){
+  return document.getElementById('algorithmMode')?.value==='mdb'
+    ? mdbScore(d)
+    : (d?.note==null?null:Number(d.note));
+}
+function activeAlgorithmName(){
+  return document.getElementById('algorithmMode')?.value==='mdb'?'Marchand de biens':'Périurbain'
+}
+function fmt(v,s=''){
+  return v==null?'—':Number(v).toLocaleString('fr-FR',{maximumFractionDigits:2})+s
+}
 const POPUP_METRICS=[
-  {key:'loyer',name:'Loyer moyen',unit:'€/m²',sub:'score_loyer',icon:'rent',scale:[0,18],labels:['0','18'],classes:[[0,8,'À fuir','bad'],[8,10,'Demande faible','bad'],[10,12,'Moyen, vigilance','warn'],[12,15,'Bonne demande locative','good'],[15,18,'Forte demande locative','good'],[18,Infinity,'Excellente demande locative','good']]},
-  {key:'rendement',name:'Rendement brut',unit:'%',sub:'score_prix',icon:'yield',scale:[0,12],labels:['0 %','12 %'],secondary:d=>'Prix médian : '+fmt(d.prix)+' €/m²',classes:[[0,4,'Très faible ratio','bad'],[4,6,'Faible ratio','bad'],[6,8,'Insuffisant','warn'],[8,10,'Correct ratio','good'],[10,12,'Très bon ratio','good'],[12,Infinity,'Excellent ratio','good']]},
-  {key:'demo',name:'Croissance démographique',unit:'%/an',sub:'score_demo',icon:'growth',scale:[-0.5,1],labels:['−0,5','+1'],classes:[[-Infinity,-0.5,'Gros déclin','bad'],[-0.5,0,'Déclin','bad'],[0,0.25,'Stagnation','warn'],[0.25,0.5,'Croissance correcte','good'],[0.5,1,'Croissance forte','good'],[1,Infinity,'Croissance excellente','good']]},
-  {key:'young',name:'Part des 15–29 ans',unit:'%',sub:'score_young',icon:'young',scale:[0,20],labels:['0 %','20 %'],classes:[[0,10,'Très faible demande','bad'],[10,12.5,'Faible demande','bad'],[12.5,15,'Demande correcte','warn'],[15,17.5,'Demande élevée','good'],[17.5,20,'Demande très élevée','good'],[20,Infinity,'Demande très élevée','good']]},
-  {key:'ratio',name:'Ratio actifs / (chômeurs + inactifs)',unit:'',sub:'score_ratio',icon:'ratio',scale:[0,2.4],labels:['0','2,4'],classes:[[0,1.2,'Très faible ratio','bad'],[1.2,1.5,'Faible ratio','bad'],[1.5,1.8,'Moyen','warn'],[1.8,2.1,'Bon ratio','good'],[2.1,2.4,'Très bon ratio','good'],[2.4,Infinity,'Excellent ratio','good']]},
-  {key:'revenu',name:'Revenu fiscal moyen',unit:'€/an',sub:'score_revenu',icon:'income',scale:[20000,32000],labels:['20 k€','32 k€'],classes:[[0,20000,'Très faible pouvoir d’achat','bad'],[20000,23000,'Faible pouvoir d’achat','bad'],[23000,26000,'Moyen, vigilance','warn'],[26000,29000,'Bon pouvoir d’achat','good'],[29000,32000,'Très bon pouvoir d’achat','good'],[32000,Infinity,'Excellent pouvoir d’achat','good']]}
+  {key:'prix',name:'Prix médian',unit:'€/m²',sub:'score_prix_mdb',icon:'price',scale:[500,5000],labels:['500 €','5 000 €'],classes:[[0,1000,'Prix très bas','bad'],[1000,1500,'Sous le point neutre','bad'],[1500,2000,'Au-dessus du point neutre','good'],[2000,2500,'Prix favorable','good'],[2500,3000,'Prix élevé','good'],[3000,Infinity,'Prix très élevé','good']]},
+  {key:'evolution',name:'Évolution du prix 2021→2025',unit:'%',sub:'score_evolution',icon:'growth',scale:[-50,75],labels:['−50 %','+75 %'],classes:[[-Infinity,-5,'Baisse forte','bad'],[-5,0,'Baisse légère','warn'],[0,5,'Hausse faible','warn'],[5,10,'Hausse modérée','good'],[10,20,'Hausse forte','good'],[20,Infinity,'Hausse très forte','good']]},
+  {key:'demo',name:'Croissance démographique',unit:'%/an',sub:'score_demo_mdb',icon:'growth',scale:[-5,5],labels:['−5 %','+5 %'],classes:[[-Infinity,-.5,'Déclin marqué','bad'],[-.5,0,'Déclin','bad'],[0,.25,'Stagnation','warn'],[.25,.5,'Croissance correcte','good'],[.5,1,'Croissance forte','good'],[1,Infinity,'Croissance excellente','good']]},
+  {key:'ratio',name:'Ratio actifs / (chômeurs + inactifs)',unit:'',sub:'score_ratio_mdb',icon:'ratio',scale:[0,4],labels:['0','4'],classes:[[0,1.2,'Très faible ratio','bad'],[1.2,1.5,'Faible ratio','bad'],[1.5,1.8,'Moyen','warn'],[1.8,2.1,'Bon ratio','good'],[2.1,2.4,'Très bon ratio','good'],[2.4,Infinity,'Excellent ratio','good']]},
+  {key:'revenu',name:'Revenu fiscal moyen',unit:'€/an',sub:'score_revenu_mdb',icon:'income',scale:[15000,45000],labels:['15 k€','45 k€'],classes:[[0,20000,'Très faible pouvoir d’achat','bad'],[20000,23000,'Faible pouvoir d’achat','bad'],[23000,26000,'Moyen','warn'],[26000,29000,'Bon pouvoir d’achat','good'],[29000,32000,'Très bon pouvoir d’achat','good'],[32000,Infinity,'Excellent pouvoir d’achat','good']]}
 ];
 let popupStats=null;
 const popupPhotoCache=new Map();
 const ICONS={
+  price:'<svg viewBox="0 0 24 24"><path d="M4 7h16v10H4z"/><path d="M8 12h8M8 9h.01M8 15h.01"/></svg>',
   rent:'<svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V10l7-6 7 6v11"/><path d="M9 21v-6h6v6"/></svg>',
   yield:'<svg viewBox="0 0 24 24"><path d="M4 18l5-5 4 3 7-8"/><path d="M16 8h4v4"/><path d="M4 21h16"/></svg>',
   growth:'<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9" r="2.5"/><path d="M3.5 20c.7-3.4 2.5-5 5.5-5s4.8 1.6 5.5 5"/><path d="M14 20c.4-2.4 1.7-3.7 3.8-3.7 1.5 0 2.7.7 3.7 2.2"/></svg>',
@@ -123,7 +178,7 @@ function buildPopupStats(){
 }
 function rankFor(d){
   if(!d || d.note==null || Number.isNaN(Number(d.note))) return 'N/A';
-  const sorted=[...DATA].sort((a,b)=>Number(b.note)-Number(a.note));
+  const sorted=DATA.filter(x=>activeScore(x)!=null).sort((a,b)=>activeScore(b)-activeScore(a));
   const idx=sorted.findIndex(x=>x.code===d.code);
   return idx<0?'N/A':(idx+1).toLocaleString('fr-FR')+' / '+DATA.length.toLocaleString('fr-FR');
 }
@@ -223,7 +278,7 @@ function popup(d){
     <div class="popupScore ${rated?'':'popupScoreNA'}"><div><span>Note ${active}</span><div class="popupRank">Classement : ${rankFor(d)}</div></div><strong>${noteText}</strong></div>
     <div class="subTitle">Indicateurs et sous-scores</div>
     ${POPUP_METRICS.map(m=>metricRow(d,m)).join('')}
-    <div class="methodNote">${rated?'Les bornes des barres correspondent aux seuils mini–maxi utilisés par l’algorithme périurbain pour chaque indicateur. En mode MdB, la note affichée utilise un prototype distinct pondérant davantage le prix d’acquisition et le potentiel de revente. Le rond noir indique la position de la valeur de la commune sur l’échelle.':'Cette commune ne dispose pas des données nécessaires pour calculer la note globale. Les indicateurs non disponibles sont affichés N/A.'}</div>
+    <div class="methodNote">${rated?(active==='Marchand de biens'?'Algorithme MdB : prix d’achat 15 %, évolution des prix 30 %, démographie 20 %, ratio actifs/(chômeurs + inactifs) 20 %, revenu 15 %. À 1 500 €/m², le score prix est nul ; il progresse ensuite de façon continue et est plafonné à −1,20/+1,20.':'Algorithme périurbain : note historique conservée depuis la base source.'):'Cette commune ne dispose pas des données nécessaires pour calculer la note globale. Les indicateurs non disponibles sont affichés N/A.'}</div>
   </div>`;
 }
 let layer;
@@ -293,7 +348,7 @@ function ratedPasses(d,q,deps,showRated,th,yth,name,code){
   const deptOk=!deps.length||deps.includes(String(code).slice(0,2));
   if(!showRated || !textOk || !deptOk)return false;
   if(th>=0 && Number(score)<th)return false;
-  if(yth>=0 && !(d.rendement!=null && Number(d.rendement)>=yth))return false;
+  if(yth>=0 && (document.getElementById('algorithmMode')?.value==='mdb' ? !(d.evolution!=null && Number(d.evolution)>=yth) : !(d.rendement!=null && Number(d.rendement)>=yth)))return false;
   return true;
 }
 
@@ -344,7 +399,7 @@ function apply(){
     : 'couleurs des communes notées masquées';
   document.getElementById('status').textContent=
     totalDisplayed.toLocaleString('fr-FR')+' communes affichées · '+criteriaText+' · '+
-    TOTAL_RATED.toLocaleString('fr-FR')+' notées dans la base';
+    TOTAL_RATED().toLocaleString('fr-FR')+' notées dans la base';
 
   if(matches.length===1) zoomToData(matches[0].data||{code:matches[0].code,name:matches[0].name,note:null});
 }
@@ -419,8 +474,16 @@ async function load(){
     const updateAlgorithmUI=()=>{
       const m=algoMode.value;
       document.getElementById('appTitle').textContent=m==='mdb'?'Algorithme marchand de biens':'Algorithme périurbain';
-      document.getElementById('algoInfo').textContent=m==='mdb'?'Prototype MdB : prix d’acquisition, rendement, loyer, dynamique démographique, ratio d’activité, pouvoir d’achat et part des 15–29 ans.':'Recherche de secteurs favorables à la mise en location.';
+      document.getElementById('algoInfo').textContent=m==='mdb'
+        ?'MdB : prix 15 % · évolution des prix 30 % · démographie 20 % · ratio 20 % · revenu 15 %.'
+        :'Recherche de secteurs favorables à la mise en location.';
       document.getElementById('threshold').options[0].text=m==='mdb'?'Toutes les notes MdB':'Toutes les notes';
+      const ys=document.getElementById('yieldThreshold');
+      if(m==='mdb'){
+        ys.innerHTML='<option value="-1">Toutes les évolutions</option><option value="20">Évolution ≥ +20 %</option><option value="15">Évolution ≥ +15 %</option><option value="10">Évolution ≥ +10 %</option><option value="5">Évolution ≥ +5 %</option><option value="0">Évolution ≥ 0 %</option><option value="-5">Évolution ≥ −5 %</option>';
+      }else{
+        ys.innerHTML='<option value="-1">Tous les rendements</option><option value="10">Rendement brut ≥ 10 %</option><option value="9">Rendement brut ≥ 9 %</option><option value="8">Rendement brut ≥ 8 %</option><option value="7">Rendement brut ≥ 7 %</option><option value="6">Rendement brut ≥ 6 %</option><option value="5">Rendement brut ≥ 5 %</option><option value="4">Rendement brut ≥ 4 %</option>';
+      }
       apply();
     };
     algoMode.addEventListener('change',updateAlgorithmUI);
